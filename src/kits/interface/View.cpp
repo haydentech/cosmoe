@@ -5654,10 +5654,12 @@ BView::CopyBits(BRect src, BRect dst)
 		}
 	}
 
-	BRegion missingDestination(dst);
-	missingDestination.Exclude(&filledDestination);
-	for (int32 i = 0; i < missingDestination.CountRects(); i++)
-		Invalidate(missingDestination.RectAt(i));
+	if (updateRect == NULL) {
+		BRegion missingDestination(dst);
+		missingDestination.Exclude(&filledDestination);
+		for (int32 i = 0; i < missingDestination.CountRects(); i++)
+			Invalidate(missingDestination.RectAt(i));
+	}
 }
 
 
