@@ -646,7 +646,21 @@ view_redraw_handler(struct widget *widget, void *data)
 						cairo_pattern_set_matrix(pattern, &matrix);
 					}
 					
-					cairo_paint(cr);
+					const BRegion& dirtyRegion = window->fBackingSurfaceDirtyRegion;
+					if (dirtyRegion.CountRects() > 0) {
+						cairo_save(cr);
+						for (int32 i = 0; i < dirtyRegion.CountRects(); i++) {
+							BRect rect = dirtyRegion.RectAt(i);
+							cairo_rectangle(cr, rect.left, rect.top,
+								rect.Width() + 1, rect.Height() + 1);
+						}
+						cairo_clip(cr);
+						cairo_paint(cr);
+						cairo_restore(cr);
+						window->fBackingSurfaceDirtyRegion.MakeEmpty();
+					} else {
+						cairo_paint(cr);
+					}
 					window->_DrawPointerTrackingOverlayLocked(cr);
 					cairo_destroy(cr);
 				}
@@ -1958,6 +1972,7 @@ BWindow::EnableUpdates()
 		BEGIN_MESSAGE
 		fLink->StartMessage(AS_FORCE_UPDATE);
 		fLink->Attach<int32_t>(fWindowToken);
+			fLink->Attach<BRect>(BRect(0, 0, -1, -1));
 		fLink->Flush();
 	}
 }
@@ -2267,25 +2282,25 @@ BWindow::DispatchMessage(BMessage* message, BHandler* target)
 			int32 width, height;
 			if (message->FindInt32("width", &width) == B_OK
 				&& message->FindInt32("height", &height) == B_OK) {
-				// combine with pending resize notifications
-				BMessage* pendingMessage;
-				while ((pendingMessage
-						= MessageQueue()->FindMessage(B_WINDOW_RESIZED, 0))) {
-					int32 nextWidth;
-					if (pendingMessage->FindInt32("width", &nextWidth) == B_OK)
-						width = nextWidth;
+				    // combine with pending resize notifications
+				    BMessage* pendingMessage;
+				    while ((pendingMessage
+						    = MessageQueue()->FindMessage(B_WINDOW_RESIZED, 0))) {
+					    int32 nextWidth;
+					    if (pendingMessage->FindInt32("width", &nextWidth) == B_OK)
+						    width = nextWidth;
 
-					int32 nextHeight;
-					if (pendingMessage->FindInt32("height", &nextHeight)
-							== B_OK) {
-						height = nextHeight;
-					}
+					    int32 nextHeight;
+					    if (pendingMessage->FindInt32("height", &nextHeight)
+							    == B_OK) {
+						    height = nextHeight;
+					    }
 
-					MessageQueue()->RemoveMessage(pendingMessage);
-					delete pendingMessage;
-						// this deletes the first *additional* message
-						// fCurrentMessage is safe
-				}
+					    MessageQueue()->RemoveMessage(pendingMessage);
+					    delete pendingMessage;
+						    // this deletes the first *additional* message
+						    // fCurrentMessage is safe
+				    }
 				if (width != fFrame.Width() || height != fFrame.Height()) {
 					// NOTE: we might have already handled the resize
 					// in an _UPDATE_ message
@@ -2468,6 +2483,7 @@ FrameMoved(origin);
 			STRACE(("info:BWindow handling _UPDATE_.\n"));
 
 			fInTransaction = true;
+				BRect backingSurfaceDamage;
 
 			{
 
@@ -2611,7 +2627,7 @@ FrameMoved(origin);
 					const CoalescedUpdate& info = sortedInfos[i];
 					if (BView* view = _FindView(info.token)) {
 						if (!view->IsHidden())
-							view->_Draw(info.updateRect);
+							view->_DrawBackground(info.updateRect);
 					}
 					else {
 						STRACE(("_UPDATE_ - didn't find view by token: %" B_PRId32 "\n", info.token));
@@ -2620,7 +2636,15 @@ FrameMoved(origin);
 					// this _UPDATE_ message was processed - just skip it silently
 //drawTime += system_time() - drawStart;
 				}
-				
+
+				for (size_t i = 0; i < sortedInfos.size(); i++) {
+					const CoalescedUpdate& info = sortedInfos[i];
+					if (BView* view = _FindView(info.token)) {
+						if (!view->IsHidden())
+							view->_Draw(info.updateRect);
+					}
+				}
+
 				// DrawAfterChildren in reverse depth order.
 				for (size_t i = sortedInfos.size(); i-- > 0;) {
 					const CoalescedUpdate& info = sortedInfos[i];
@@ -2629,6 +2653,13 @@ FrameMoved(origin);
 							view->_DrawAfterChildren(info.updateRect);
 					}
 				}
+
+				for (const CoalescedUpdate& info : sortedInfos) {
+					if (BView* view = _FindView(info.token))
+						fBackingSurfaceDirtyRegion.Include(
+							view->ConvertToWindow(info.updateRect));
+				}
+				backingSurfaceDamage = fBackingSurfaceDirtyRegion.Frame();
 
 				// Mark backing surface as valid now that drawing is complete
 				// This allows view_redraw_handler to copy it to the display
@@ -2649,6 +2680,7 @@ FrameMoved(origin);
 				BEGIN_MESSAGE
 				fLink->StartMessage(AS_FORCE_UPDATE);
 				fLink->Attach<int32_t>(fWindowToken);
+				fLink->Attach<BRect>(backingSurfaceDamage);
 				fLink->Flush();
 			} else if (fUpdatesDisabled) {
 				fUpdateRequested = true;
@@ -4161,6 +4193,9 @@ BWindow::_CreateBackingSurface()
 		fBackingSurfaceValid = false;
 	}
 
+	fBackingSurfaceDirtyRegion.Set(fTopView != NULL ? fTopView->Bounds()
+		: BRect(0, 0, fFrame.Width(), fFrame.Height()));
+
 	cairo_destroy(cr);
 
 	if (oldSurface != NULL)
@@ -4185,6 +4220,7 @@ BWindow::_RequestTrackingRedraw()
 	BEGIN_MESSAGE
 	fLink->StartMessage(AS_FORCE_UPDATE);
 	fLink->Attach<int32_t>(fWindowToken);
+	fLink->Attach<BRect>(BRect(0, 0, -1, -1));
 	fLink->Flush();
 }
 
@@ -4555,7 +4591,11 @@ BWindow::_InitData(BRect frame, const char* title, window_look look,
 
 	fOffscreen = (bitmapToken >= 0);
 
-	pthread_mutex_init(&fBackingSurfaceLock, NULL);
+	pthread_mutexattr_t backingSurfaceLockAttributes;
+	pthread_mutexattr_init(&backingSurfaceLockAttributes);
+	pthread_mutexattr_settype(&backingSurfaceLockAttributes, PTHREAD_MUTEX_RECURSIVE);
+	pthread_mutex_init(&fBackingSurfaceLock, &backingSurfaceLockAttributes);
+	pthread_mutexattr_destroy(&backingSurfaceLockAttributes);
 
 	// Initialize display scale
 	fDisplayScalePercent = 100;  // Will be updated after window creation

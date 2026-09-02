@@ -109,7 +109,8 @@ public:
 	virtual void DisplayExit(backend_display_t display) = 0;
 	virtual void DisplayTriggerRedraw(backend_display_t display,
 					 backend_window_t window,
-					 backend_widget_t widget) = 0;
+										 backend_widget_t widget,
+										 const struct rectangle* damage) = 0;
 	// Get main screen/surface size for the display
 	virtual void DisplayGetScreenDimensions(backend_display_t display, struct rectangle* allocation) = 0;
 	virtual void* DisplayGetUserData(backend_display_t display) = 0;

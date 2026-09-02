@@ -70,7 +70,8 @@ void display_destroy(struct display* display);
 void display_run(struct display* display);
 void display_exit(struct display* display);
 void display_flush(struct display* display);
-void display_trigger_redraw(struct display* display, struct window* window, struct widget* widget);
+void display_trigger_redraw(struct display* display, struct window* window,
+	struct widget* widget, const struct rectangle* damage);
 void display_get_screen_dimensions(struct display* display, struct rectangle* allocation);
 void* display_get_user_data(struct display* display);
 void display_set_user_data(struct display* display, void* data);

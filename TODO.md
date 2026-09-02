@@ -5,15 +5,6 @@
 - Cairo complains on exit due to non-empty object hash (i.e. memory leak)
   - This assert is currently disabled.
 
-- TextEdit control works but has issues
-  - Selection changes sometimes don't show up until the next repaint.
-  - When scrolled, selecting text does not always highlight the correct range.
-
-- Window repaint is inefficient
-  - After any `Invalidate()`, the entire window backing buffer is copied to the window.
-  - It should be limited to the inval rect.
-  - This is so fast on modern hardware that it's not even noticeable, but we need to fix it eventually.
-
 - Modal alerts are not fully modal on Wayland
   - The alert stays frontmost, but input will still be processed in the parent window.
 
@@ -170,6 +161,6 @@ Cosmoe is designed to be as compatible as possible with Haiku/Be code, but there
 ## Unit tests issues for drawing
 
 - inverse_clipping:  busted
-- benchmark: Cosmoe is slower than Haiku by 2x in RandomLines and 2.5x in Strings
+- benchmark: Cosmoe is slower than Haiku by 4x in Strings
 - clip_to_picture: busted
 - on the plus side, many tests, especially BPicture tests, actually work better on Cosmoe

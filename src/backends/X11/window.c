@@ -2100,7 +2100,7 @@ display_run(struct display *display)
 			switch (event.type) {
 			case ConfigureNotify:
 				/* Coalesce multiple ConfigureNotify events - skip to the last one */
-				while (XCheckTypedWindowEvent(display->xdisplay, event.xany.window, 
+				while (XCheckTypedWindowEvent(display->xdisplay, event.xany.window,
 							       ConfigureNotify, &event)) {
 					/* Keep reading and discarding until we get the last one */
 				}
@@ -2139,12 +2139,18 @@ display_run(struct display *display)
 				display_handle_selection_notify(display, &event.xselection);
 				break;
 			case FocusIn:
-				if (window->focus_handler)
+				if (event.xfocus.mode != NotifyGrab
+					&& event.xfocus.mode != NotifyUngrab
+					&& window->focus_handler) {
 					window->focus_handler(window, true, window->focus_user_data);
+				}
 				break;
 			case FocusOut:
-				if (window->focus_handler)
+				if (event.xfocus.mode != NotifyGrab
+					&& event.xfocus.mode != NotifyUngrab
+					&& window->focus_handler) {
 					window->focus_handler(window, false, window->focus_user_data);
+				}
 				break;
 			}
 		} else {
@@ -2225,8 +2231,9 @@ display_flush(struct display *display)
 
 void
 display_trigger_redraw(struct display *display, struct window *window,
-		       struct widget *widget)
+                       struct widget *widget, const struct rectangle *damage)
 {
+	(void)damage;
 	/* If no window was provided directly, get it from the widget */
 	if (!window && widget)
 		window = widget->window;

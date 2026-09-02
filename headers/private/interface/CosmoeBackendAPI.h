@@ -123,7 +123,8 @@ void cosmoe_display_run(cosmoe_display_t display);
 void cosmoe_display_exit(cosmoe_display_t display);
 void cosmoe_display_trigger_redraw(cosmoe_display_t display,
 				   cosmoe_window_t window,
-				   cosmoe_widget_t widget);
+								   cosmoe_widget_t widget,
+								   const cosmoe_rectangle* damage);
 void cosmoe_display_get_screen_dimensions(cosmoe_display_t display, cosmoe_rectangle* allocation);
 void cosmoe_display_set_port(cosmoe_display_t display, int32_t sender_port_id, int32_t receiver_port_id);
 

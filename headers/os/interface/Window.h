@@ -11,6 +11,7 @@
 #include <List.h>
 #include <Locker.h>
 #include <Looper.h>
+#include <Region.h>
 #include <StorageDefs.h>
 #include <View.h>
 
@@ -482,6 +483,7 @@ public:
 			cairo_surface_t*	fBackingSurface = NULL;
 			pthread_mutex_t		fBackingSurfaceLock;
 			bool				fBackingSurfaceValid = false;
+			BRegion				fBackingSurfaceDirtyRegion;
 			int32				fDisplayScalePercent;
 			BLocker				fDirtyViewsLock;
 			BList				fDirtyViews;
