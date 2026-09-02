@@ -245,7 +245,7 @@ cocoa_key_equivalent_for_shortcut(const char* shortcut,
 		} else if ([modifier caseInsensitiveCompare:@"Ctrl"] == NSOrderedSame
 			|| [modifier caseInsensitiveCompare:@"Control"] == NSOrderedSame) {
 			if (modifierMask != NULL)
-				*modifierMask |= NSEventModifierFlagCommand;
+				*modifierMask |= NSEventModifierFlagControl;
 		} else if ([modifier caseInsensitiveCompare:@"Alt"] == NSOrderedSame
 			|| [modifier caseInsensitiveCompare:@"Option"] == NSOrderedSame) {
 			if (modifierMask != NULL)
@@ -253,7 +253,7 @@ cocoa_key_equivalent_for_shortcut(const char* shortcut,
 		} else if ([modifier caseInsensitiveCompare:@"Cmd"] == NSOrderedSame
 			|| [modifier caseInsensitiveCompare:@"Command"] == NSOrderedSame) {
 			if (modifierMask != NULL)
-				*modifierMask |= NSEventModifierFlagControl;
+				*modifierMask |= NSEventModifierFlagCommand;
 		}
 	}
 
@@ -1152,6 +1152,8 @@ void display_flush(struct display* display)
 void display_trigger_redraw(struct display* display, struct window* window,
 	struct widget* widget, const struct rectangle* damage)
 {
+	(void)display;
+
 	if (!window && widget)
 		window = widget->window;
 	if (!widget && window)
@@ -1159,14 +1161,27 @@ void display_trigger_redraw(struct display* display, struct window* window,
 
 	if (!widget || !widget->nsview)
 		return;
+
+	// The caller's damage rectangle can be stack allocated. Copy it before the
+	// asynchronous main-thread dispatch below captures it.
+	const bool hasDamage = damage != NULL;
+	const struct rectangle damageCopy = hasDamage ? *damage : (struct rectangle){};
 	
 	// Marshal to main thread
 	dispatch_async(dispatch_get_main_queue(), ^{
 		@autoreleasepool {
 			NSView* view = (NSView*)widget->nsview;
-			if (damage != NULL) {
-				[view setNeedsDisplayInRect:NSMakeRect(damage->x, damage->y,
-					damage->width, damage->height)];
+			if (hasDamage) {
+				// Cosmoe damage coordinates have a top-left origin. NSView uses a
+				// bottom-left origin, so mirror the rectangle vertically before
+				// invalidating it. drawRect: flips its CGContext back to Cosmoe's
+				// coordinate system before the backing surface is painted.
+				NSRect bounds = [view bounds];
+				NSRect cocoaDamage = NSMakeRect(
+					NSMinX(bounds) + damageCopy.x,
+					NSMaxY(bounds) - damageCopy.y - damageCopy.height,
+					damageCopy.width, damageCopy.height);
+				[view setNeedsDisplayInRect:cocoaDamage];
 			} else {
 				[view setNeedsDisplay:YES];
 			}
