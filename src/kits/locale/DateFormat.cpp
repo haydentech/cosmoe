@@ -418,7 +418,7 @@ BDateFormat::_CreateDateFormatter(const BDateFormatStyle style) const
 	BString format;
 	fConventions.GetDateFormat(style, format);
 
-	UnicodeString pattern(format.String());
+	UnicodeString pattern = UnicodeString::fromUTF8(format.String());
 	dateFormatterImpl->applyPattern(pattern);
 
 	return dateFormatter;
