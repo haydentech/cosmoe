@@ -133,11 +133,11 @@ shortcut_string_for(BMenuItem* item)
 	if ((modifiers & B_SHIFT_KEY) != 0)
 		result += "Shift+";
 	if ((modifiers & B_CONTROL_KEY) != 0)
-		result += "Ctrl+";
+		result += "Windows+";
 	if ((modifiers & B_OPTION_KEY) != 0)
 		result += "Alt+";
 	if ((modifiers & B_COMMAND_KEY) != 0)
-		result += "Cmd+";
+		result += "Ctrl+";
 
 	result += shortcut;
 	return result;

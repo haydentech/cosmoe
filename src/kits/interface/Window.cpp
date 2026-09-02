@@ -646,8 +646,11 @@ view_redraw_handler(struct widget *widget, void *data)
 						cairo_pattern_set_matrix(pattern, &matrix);
 					}
 					
+					const char* backendName = cosmoe_backend_get_current_name();
+					const bool cocoaBackend = backendName != NULL
+						&& strcmp(backendName, "cocoa") == 0;
 					const BRegion& dirtyRegion = window->fBackingSurfaceDirtyRegion;
-					if (dirtyRegion.CountRects() > 0) {
+					if (!cocoaBackend && dirtyRegion.CountRects() > 0) {
 						cairo_save(cr);
 						for (int32 i = 0; i < dirtyRegion.CountRects(); i++) {
 							BRect rect = dirtyRegion.RectAt(i);
@@ -657,10 +660,15 @@ view_redraw_handler(struct widget *widget, void *data)
 						cairo_clip(cr);
 						cairo_paint(cr);
 						cairo_restore(cr);
-						window->fBackingSurfaceDirtyRegion.MakeEmpty();
 					} else {
+						// Cocoa's CGContext is already clipped to drawRect:'s dirty
+						// region. Reapplying fBackingSurfaceDirtyRegion here is unsafe:
+						// it is shared with asynchronous update requests and can no
+						// longer describe the exact native dirty region. Let Quartz
+						// perform the target clipping while it copies the source.
 						cairo_paint(cr);
 					}
+					window->fBackingSurfaceDirtyRegion.MakeEmpty();
 					window->_DrawPointerTrackingOverlayLocked(cr);
 					cairo_destroy(cr);
 				}
