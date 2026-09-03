@@ -56,7 +56,7 @@ enum {
 enum {
 	TOP_LEFT_LIMIT	= 26,
 	H_BORDER		= 5,
-	V_BORDER		= 2,
+	V_BORDER		= 4,
 	ANIM_LABEL		= 52,
 	ANIM_POPUP		= 125,
 	DISP_LABEL		= 40,
@@ -70,7 +70,7 @@ enum {
 	STATUS_BOX		= 98,
 	STATUS_LABEL	= 13,
 	STATUS_EDIT		= 25,
-	STATUS_OFFSET	= 2,
+	STATUS_OFFSET	= 3,
 	BOX_H_OFFSET	= 4,
 	BOX_V_OFFSET	= 14,
 	FULL_SCREEN		= 16,
@@ -519,8 +519,8 @@ ChartWindow::ChartWindow(BRect frame, const char *name)
 		item->SetTarget(this);
 		menu->AddItem(item);
 
-		r.Set(h, v, h+ANIM_LABEL+ANIM_POPUP-1, v +
-			(TOP_LEFT_LIMIT - 1 - 2*V_BORDER));
+		r.Set(h, v - 4, h+ANIM_LABEL+ANIM_POPUP-1, v +
+			(TOP_LEFT_LIMIT - 1 - 2*V_BORDER) - 4);
 		popup = new BMenuField(r, "", B_TRANSLATE("Animation:"), menu);
 		popup->SetFont(&font);
 		popup->MenuBar()->SetFont(&font);
@@ -550,8 +550,8 @@ ChartWindow::ChartWindow(BRect frame, const char *name)
 		item->SetEnabled(BDirectWindow::SupportsWindowMode());
 		menu->AddItem(item);
 
-		r.Set(h, v, h+DISP_LABEL+DISP_POPUP-1, v +
-			(TOP_LEFT_LIMIT - 1 - 2*V_BORDER));
+		r.Set(h, v - 4, h+DISP_LABEL+DISP_POPUP-1, v +
+			(TOP_LEFT_LIMIT - 1 - 2*V_BORDER) - 4);
 		popup = new BMenuField(r, "", B_TRANSLATE("Display:"), menu);
 		popup->SetFont(&font);
 		popup->MenuBar()->SetFont(&font);
@@ -620,8 +620,8 @@ ChartWindow::ChartWindow(BRect frame, const char *name)
 		item->SetTarget(this);
 		menu->AddItem(item);
 
-		r.Set(h, v, h+SPACE_LABEL+SPACE_POPUP-1, v +
-			(TOP_LEFT_LIMIT - 1 - 2*V_BORDER));
+		r.Set(h, v - 4, h+SPACE_LABEL+SPACE_POPUP-1, v +
+			(TOP_LEFT_LIMIT - 1 - 2*V_BORDER) - 4);
 		popup = new BMenuField(r, "", B_TRANSLATE("Space:"), menu);
 		popup->SetFont(&font);
 		popup->MenuBar()->SetFont(&font);
@@ -658,7 +658,7 @@ ChartWindow::ChartWindow(BRect frame, const char *name)
 
 			/* frames per second title string */
 			r.Set(h, v, h+LEFT_WIDTH-2*LEFT_OFFSET-2*BOX_H_OFFSET-1,
-				v+STATUS_LABEL-1);
+				v+STATUS_LABEL+1);
 			string = new BStringView(r, "", B_TRANSLATE("Frames/s"));
 			string->SetFont(&font);
 			string->SetAlignment(B_ALIGN_CENTER);
@@ -668,11 +668,11 @@ ChartWindow::ChartWindow(BRect frame, const char *name)
 
 			/* frames per second display string */
 			r.Set(h-1, v, h+LEFT_WIDTH-2*LEFT_OFFSET-2*BOX_H_OFFSET,
-				v+STATUS_EDIT-1);
+				v+STATUS_EDIT);
 			fFramesView = new BStringView(r, "", "0.0");
 			fFramesView->SetAlignment(B_ALIGN_RIGHT);
 			fFramesView->SetFont(be_bold_font);
-			fFramesView->SetFontSize(24.0);
+			fFramesView->SetFontSize(23.0);
 			fFramesView->SetViewColor(B_TRANSPARENT_32_BIT);
 			fStatusBox->AddChild(fFramesView);
 
@@ -680,7 +680,7 @@ ChartWindow::ChartWindow(BRect frame, const char *name)
 
 			/* CPU load pourcentage title string */
 			r.Set(h, v, h+LEFT_WIDTH-2*LEFT_OFFSET-2*BOX_H_OFFSET-1,
-				v+STATUS_LABEL-1);
+				v+STATUS_LABEL+1);
 			string = new BStringView(r, "", B_TRANSLATE("CPU load"));
 			string->SetAlignment(B_ALIGN_CENTER);
 			string->SetFont(&font);
@@ -690,11 +690,11 @@ ChartWindow::ChartWindow(BRect frame, const char *name)
 
 			/* CPU load pourcentage display string */
 			r.Set(h-1, v, h+LEFT_WIDTH-2*LEFT_OFFSET-2*BOX_H_OFFSET,
-				v+STATUS_EDIT-1);
+				v+STATUS_EDIT);
 			fCpuLoadView = new BStringView(r, "", "0.0");
 			fCpuLoadView->SetAlignment(B_ALIGN_RIGHT);
 			fCpuLoadView->SetFont(be_bold_font);
-			fCpuLoadView->SetFontSize(24.0);
+			fCpuLoadView->SetFontSize(23.0);
 			fCpuLoadView->SetViewColor(B_TRANSPARENT_32_BIT);
 			fStatusBox->AddChild(fCpuLoadView);
 
@@ -798,7 +798,7 @@ ChartWindow::ChartWindow(BRect frame, const char *name)
 				new BMessage(COLORS_YELLOW_MSG));
 			check_box->SetValue(1);
 			check_box->SetFont(&font);
-			check_box->ResizeToPreferred();
+			//check_box->ResizeToPreferred();
 			fColorsBox->AddChild(check_box);
 
 		v += COLORS_LABEL+COLORS_OFFSET;

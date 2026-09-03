@@ -19,6 +19,7 @@ cosmoe_app_resource_artwork = custom_target('cosmoe app resource artwork',
 
 app_dirs = [
     'aboutsystem',
+	'chart',
     'clock',
     'charactermap',
     'columns',
@@ -295,6 +296,7 @@ deskbar_applications_menu = [
 deskbar_demos_menu = [
     'Showcase',
     'Clock',
+	'Chart',
     'FontDemo',
     'Gradients',
     'Mandelbrot',
