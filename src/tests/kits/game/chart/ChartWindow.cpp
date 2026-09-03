@@ -2964,6 +2964,12 @@ void
 ChartWindow::SwitchContext(direct_buffer_info *info)
 {
 	uint32 i, j;
+	int32 displayScale = DisplayScale();
+	if (displayScale < 100)
+		displayScale = 100;
+	double directScale = (double)displayScale / 100.0;
+	int32 leftOffset = (int32)(LEFT_WIDTH * directScale + 0.5);
+	int32 topOffset = (int32)(TOP_LEFT_LIMIT * directScale + 0.5);
 
 	/* you need to use that mask to read the buffer state. */
 	switch (info->buffer_state & B_DIRECT_MODE_MASK) {
@@ -2984,8 +2990,8 @@ ChartWindow::SwitchContext(direct_buffer_info *info)
 		   account the base address of the screen buffer, the position of the
 		   window and the position of the view in the window */
 		fDirectBuffer.bits = (void*)((char*)info->bits +
-			(info->window_bounds.top + TOP_LEFT_LIMIT) * info->bytes_per_row +
-			(info->window_bounds.left + LEFT_WIDTH) * (info->bits_per_pixel>>3));
+			(info->window_bounds.top + topOffset) * info->bytes_per_row +
+			(info->window_bounds.left + leftOffset) * (info->bits_per_pixel>>3));
 		/* Bytes per row and pixel-format are the same than the window values */
 		fDirectBuffer.bytes_per_row = info->bytes_per_row;
 		SetColorSpace(&fDirectBuffer, info->pixel_format);
@@ -2995,20 +3001,20 @@ ChartWindow::SwitchContext(direct_buffer_info *info)
 		   and height of the window itself, reduced by the size of the borders
 		   reserved for the UI. */
 		fDirectBuffer.buffer_width =
-			info->window_bounds.right-info->window_bounds.left+1 - LEFT_WIDTH;
+			info->window_bounds.right-info->window_bounds.left+1 - leftOffset;
 		fDirectBuffer.buffer_height =
-			info->window_bounds.bottom-info->window_bounds.top+1 - TOP_LEFT_LIMIT;
+			info->window_bounds.bottom-info->window_bounds.top+1 - topOffset;
 
 		/* Now, we go through the clipping list and "clip" the clipping
 		   rectangle to the animation view boundary. */
 		j = 0;
 		for (i=0; i<info->clip_list_count; i++) {
 			fDirectBuffer.clip_list[j].top = info->clip_list[i].top - info->window_bounds.top;
-			if (fDirectBuffer.clip_list[j].top < TOP_LEFT_LIMIT)
-				fDirectBuffer.clip_list[j].top = TOP_LEFT_LIMIT;
+			if (fDirectBuffer.clip_list[j].top < topOffset)
+				fDirectBuffer.clip_list[j].top = topOffset;
 			fDirectBuffer.clip_list[j].left = info->clip_list[i].left - info->window_bounds.left;
-			if (fDirectBuffer.clip_list[j].left < LEFT_WIDTH)
-				fDirectBuffer.clip_list[j].left = LEFT_WIDTH;
+			if (fDirectBuffer.clip_list[j].left < leftOffset)
+				fDirectBuffer.clip_list[j].left = leftOffset;
 			fDirectBuffer.clip_list[j].right = info->clip_list[i].right - info->window_bounds.left;
 			fDirectBuffer.clip_list[j].bottom = info->clip_list[i].bottom - info->window_bounds.top;
 
@@ -3019,10 +3025,10 @@ ChartWindow::SwitchContext(direct_buffer_info *info)
 			   rectangle are offset to animation view coordinates */
 			if ((fDirectBuffer.clip_list[j].top <= fDirectBuffer.clip_list[j].bottom) &&
 				(fDirectBuffer.clip_list[j].left <= fDirectBuffer.clip_list[j].right)) {
-				fDirectBuffer.clip_list[j].top -= TOP_LEFT_LIMIT;
-				fDirectBuffer.clip_list[j].left -= LEFT_WIDTH;
-				fDirectBuffer.clip_list[j].right -= LEFT_WIDTH;
-				fDirectBuffer.clip_list[j].bottom -= TOP_LEFT_LIMIT;
+				fDirectBuffer.clip_list[j].top -= topOffset;
+				fDirectBuffer.clip_list[j].left -= leftOffset;
+				fDirectBuffer.clip_list[j].right -= leftOffset;
+				fDirectBuffer.clip_list[j].bottom -= topOffset;
 				j++;
 				if (j == 64)
 					break;
