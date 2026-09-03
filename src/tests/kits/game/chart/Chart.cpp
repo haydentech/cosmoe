@@ -20,8 +20,10 @@
 #undef B_TRANSLATION_CONTEXT
 #define B_TRANSLATION_CONTEXT "Chart"
 
+#include <MacOSCompatibility.h>
+
 int
-main()
+main(int argc, char** argv)
 {
 	ChartApp *app = new ChartApp();
 	app->Run();
