@@ -1070,17 +1070,23 @@ int view_pointer_motion_handler(struct widget *widget,
 }
 
 
-void send_mouse_wheel(BView* view, float deltaX, float deltaY)
+void send_mouse_wheel(BWindow* window, BView* view, BPoint windowWhere,
+	float deltaX, float deltaY)
 {
-	if (!view->IsHidden() && view->Window() && !view->Window()->UpdatesDisabled()) {
-		BMessage* msg = new BMessage(B_MOUSE_WHEEL_CHANGED);
-		BMessage::Private messagePrivate(msg);
+	if (!view->IsHidden() && window != NULL && !window->UpdatesDisabled()) {
+		BMessage msg(B_MOUSE_WHEEL_CHANGED);
+		BMessage::Private messagePrivate(&msg);
 		messagePrivate.SetTarget(B_PREFERRED_TOKEN);
-		msg->AddInt64("when", system_time());
-		msg->AddFloat("be:wheel_delta_x", deltaX);
-		msg->AddFloat("be:wheel_delta_y", deltaY);
-		view->MessageReceived(msg);
-		delete msg;
+		msg.AddInt64("when", system_time());
+		msg.AddPoint("window_where", windowWhere);
+		msg.AddInt32("buttons", sCurrentButtons);
+		msg.AddInt32("modifiers", modifiers());
+		msg.AddInt32("_view_token", _get_object_token_(view));
+		msg.AddFloat("be:wheel_delta_x", deltaX);
+		msg.AddFloat("be:wheel_delta_y", deltaY);
+
+		BMessenger messenger(NULL, window);
+		messenger.SendMessage(&msg);
 	}
 }
 
@@ -1117,6 +1123,15 @@ void view_axis_handler(struct widget *widget, struct input *input, uint32_t time
 		x -= allocation.x;
 		y -= allocation.y;
 
+		int32 scalePercent = _RefreshWindowDisplayScale(window);
+		double scale = _DisplayScaleFactor(scalePercent);
+		// Widget surface is at physical resolution, so coordinates are in physical pixels
+		// Divide by scale to get logical coordinates
+		if (_PointerCoordsNeedScaleDivide() && scale > 1.0) {
+			x /= scale;
+			y /= scale;
+		}
+
 		BView* foundView = window->_FindView(window->fTopView, BPoint(x, y));
 		if (foundView) {
 				subView = foundView;
@@ -1125,7 +1140,7 @@ void view_axis_handler(struct widget *widget, struct input *input, uint32_t time
 		float deltaX = (axis == WL_POINTER_AXIS_HORIZONTAL_SCROLL) ? cosmoe_fixed_to_double(value) : 0.0f;
 		float deltaY = (axis == WL_POINTER_AXIS_VERTICAL_SCROLL) ? cosmoe_fixed_to_double(value) : 0.0f;
 
-		send_mouse_wheel(subView, deltaX, deltaY);
+		send_mouse_wheel(window, subView, BPoint(x, y), deltaX, deltaY);
 	}
 }
 
