@@ -387,6 +387,8 @@ private:
 
 			void				_UpdateFrame();
 			void				_CreateBackingSurface();
+	virtual	void				_BackingSurfaceWillChange();
+	virtual	void				_BackingSurfaceDidChange();
 			void				_RequestTrackingRedraw();
 			void				_UpdateTrackingRectLocked();
 			void				_DrawPointerTrackingOverlayLocked(cairo_t* cr);

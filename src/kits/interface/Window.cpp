@@ -4161,6 +4161,8 @@ BWindow::SetDisplayScale(int32 scalePercent)
 void
 BWindow::_CreateBackingSurface()
 {
+	_BackingSurfaceWillChange();
+
 	pthread_mutex_lock(&fBackingSurfaceLock);
 
 	cairo_surface_t* oldSurface = fBackingSurface;
@@ -4212,6 +4214,20 @@ BWindow::_CreateBackingSurface()
 	// Don't set device scale - we'll manually scale the Cairo context when drawing
 	
 	pthread_mutex_unlock(&fBackingSurfaceLock);
+
+	_BackingSurfaceDidChange();
+}
+
+
+void
+BWindow::_BackingSurfaceWillChange()
+{
+}
+
+
+void
+BWindow::_BackingSurfaceDidChange()
+{
 }
 
 
