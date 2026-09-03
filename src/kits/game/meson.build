@@ -6,6 +6,7 @@ if not fs.exists(meson.project_source_root() / 'third_party/miniaudio/miniaudio.
 endif
 
 srcs_game = [
+    'DirectWindow.cpp',
     'GameAudioBackendMiniaudio.cpp',
     'GameSoundDevice.cpp',
     'GameSound.cpp',

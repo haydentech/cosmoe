@@ -136,6 +136,10 @@ private:
 			void				_UnlockDirect() const;
 			void				_InitData();
 			void				_DisposeData();
+			void				_FillDirectBufferInfo(direct_buffer_state state);
+			void				_NotifyDirectConnection(direct_buffer_state state);
+	virtual	void				_BackingSurfaceWillChange();
+	virtual	void				_BackingSurfaceDidChange();
 private:
 			bool				fDaemonKiller;
 			bool				fConnectionEnable;

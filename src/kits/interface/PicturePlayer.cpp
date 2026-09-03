@@ -796,9 +796,10 @@ public:
 		bool GetGradient(BGradient*& gradient)
 		{
 			BMemoryIO stream(fBuffer, fRemaining);
-			printf("fRemaining: %ld\n", fRemaining);
 			if (BGradient::Unflatten(gradient, &stream) != B_OK) {
+#if DEBUG
 				printf("BGradient::Unflatten(_gradient, &stream) != B_OK\n");
+#endif
 				return false;
 			}
 
