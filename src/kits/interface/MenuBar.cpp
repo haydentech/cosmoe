@@ -593,9 +593,6 @@ BMenuBar::_Track(int32* action, int32 startIndex, bool showMenu)
 		GetMouse(&where, &buttons);
 		UnlockLooper();
 	}
-
-	// Comsoe: Set flag to suppress B_MOUSE_UP after menu closes (prevents click-through)
-	BWindow::SuppressNextMouseUp();
 	
 	// Cosmoe: Remember the starting click sequence for sticky mode
 	uint32 startSequence = BWindow::GetNonMenuClickSequence();
