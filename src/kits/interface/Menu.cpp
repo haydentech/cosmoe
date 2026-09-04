@@ -2120,9 +2120,6 @@ BMenu::_Track(int* action, long start)
 		// we will use this for keyboard selection
 	fStickyPressDetected = false;
 	
-	// Set flag to suppress B_MOUSE_UP after menu closes (prevents click-through)
-	BWindow::SuppressNextMouseUp();
-	
 	// Remember the current click sequence - new clicks will close the menu
 	uint32 startSequence = BWindow::GetNonMenuClickSequence();
 

@@ -1639,7 +1639,6 @@ thread_id BWindow::sDisplayThread = -1;
 
 // Cosmoe: fix sticky mode handling in our appserver-less case
 uint32 BWindow::sNonMenuClickSequence = 0;
-bool BWindow::sSuppressNextMouseUp = false;
 
 BWindow::BWindow(BRect frame, const char* title, window_type type,
 		uint32 flags, uint32 workspace)
@@ -2232,11 +2231,6 @@ BWindow::DispatchMessage(BMessage* message, BHandler* target)
 		if (feel != kMenuWindowFeel)
 			sNonMenuClickSequence++;
 	}
-
-	// Cosmoe: fix sticky mode handling for appserver-less case
-	// Suppress B_MOUSE_UP if menu tracking just ended to prevent click-through
-	if (message->what == B_MOUSE_UP && ShouldSuppressMouseUp())
-		return;
 
 	switch (message->what) {
 		case B_ZOOM:
@@ -6056,24 +6050,6 @@ uint32
 BWindow::GetNonMenuClickSequence()
 {
 	return sNonMenuClickSequence;
-}
-
-
-void
-BWindow::SuppressNextMouseUp()
-{
-	sSuppressNextMouseUp = true;
-}
-
-
-bool
-BWindow::ShouldSuppressMouseUp()
-{
-	if (sSuppressNextMouseUp) {
-		sSuppressNextMouseUp = false;
-		return true;
-	}
-	return false;
 }
 
 
