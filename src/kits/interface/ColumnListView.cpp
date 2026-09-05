@@ -2599,40 +2599,20 @@ TitleView::ResizeSelectedColumn(BPoint position, bool preferred)
 		 - originalEdge;
 	if (dX != 0) {
 		float columnHeight = fVisibleRect.Height();
-		BRect originalRect(originalEdge, 0, 1000000.0, columnHeight);
-		BRect movedRect(originalRect);
-		movedRect.OffsetBy(dX, 0);
+		// Copying the trailing columns during a live resize is not reliable on
+		// scaled backing stores: an inclusive logical column edge can land
+		// between backing pixels. Repaint the affected area instead so every
+		// column is drawn at its current position.
+		// When a column grows, its newly exposed content begins at the
+		// column's left edge, not at its former right edge. Starting there
+		// ensures text that was clipped by the narrower column is rendered
+		// again, along with every trailing column whose position changed.
+		float invalidLeft = fSelectedColumnRect.left;
+		Invalidate(BRect(invalidLeft, 0, fVisibleRect.right, columnHeight));
 
-		// Update the size of the title column
-		BRect sourceRect(0, 0, fSelectedColumn->Width(), columnHeight);
-		BRect destRect(sourceRect);
-		destRect.OffsetBy(fSelectedColumnRect.left, 0);
-
-#if DOUBLE_BUFFERED_COLUMN_RESIZE
-		ColumnResizeBufferView* bufferView = fOutlineView->ResizeBufferView();
-		bufferView->Lock();
-		DrawTitle(bufferView, sourceRect, fSelectedColumn, false);
-		bufferView->Sync();
-		bufferView->Unlock();
-
-		CopyBits(originalRect, movedRect);
-		DrawBitmap(bufferView->Bitmap(), sourceRect, destRect);
-#else
-		CopyBits(originalRect, movedRect);
-		DrawTitle(this, destRect, fSelectedColumn, false);
-#endif
-
-		// Update the body view
 		BRect slaveSize = fOutlineView->VisibleRect();
-		BRect slaveSource(originalRect);
-		slaveSource.bottom = slaveSize.bottom;
-		BRect slaveDest(movedRect);
-		slaveDest.bottom = slaveSize.bottom;
-		fOutlineView->CopyBits(slaveSource, slaveDest);
-		fOutlineView->RedrawColumn(fSelectedColumn, fSelectedColumnRect.left,
-			fResizingFirstColumn);
-
-//		fColumnsWidth += dX;
+		fOutlineView->Invalidate(BRect(invalidLeft, slaveSize.top,
+			slaveSize.right, slaveSize.bottom));
 
 		// Update the cursor
 		if (fSelectedColumn->Width() == minWidth)
