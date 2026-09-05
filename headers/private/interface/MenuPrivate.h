@@ -65,6 +65,7 @@ public:
 	static	const BBitmap*		MenuItemControl();
 	static	const BBitmap*		MenuItemOption();
 	static	const BBitmap*		MenuItemCommand();
+	static	const char*			MenuItemCommandGlyph();
 	static	const BBitmap*		MenuItemMenu();
 
 private:

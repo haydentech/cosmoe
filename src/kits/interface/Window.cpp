@@ -1441,15 +1441,21 @@ key_handler(struct window *window, struct input *input, uint32_t time,
 			#endif
 			if (state == WL_KEYBOARD_KEY_STATE_PRESSED) {
 				newModifiers |= B_LEFT_OPTION_KEY | B_OPTION_KEY;
+				#ifndef __APPLE__
 				newModifiers |= B_LEFT_COMMAND_KEY | B_COMMAND_KEY;
+				#endif
 			}
 			else {
 				newModifiers &= ~B_LEFT_OPTION_KEY;
+				#ifndef __APPLE__
 				newModifiers &= ~B_LEFT_COMMAND_KEY;
+				#endif
 				if ((newModifiers & B_RIGHT_OPTION_KEY) == 0)
 					newModifiers &= ~B_OPTION_KEY;
+				#ifndef __APPLE__
 				if ((newModifiers & B_RIGHT_COMMAND_KEY) == 0)
 					newModifiers &= ~B_COMMAND_KEY;
+				#endif
 			}
 			break;
 
@@ -1460,17 +1466,45 @@ key_handler(struct window *window, struct input *input, uint32_t time,
 			#endif
 			if (state == WL_KEYBOARD_KEY_STATE_PRESSED) {
 				newModifiers |= B_RIGHT_OPTION_KEY | B_OPTION_KEY;
+				#ifndef __APPLE__
 				newModifiers |= B_RIGHT_COMMAND_KEY | B_COMMAND_KEY;
+				#endif
 			}
 			else {
 				newModifiers &= ~B_RIGHT_OPTION_KEY;
+				#ifndef __APPLE__
 				newModifiers &= ~B_RIGHT_COMMAND_KEY;
+				#endif
 				if ((newModifiers & B_LEFT_OPTION_KEY) == 0)
 					newModifiers &= ~B_OPTION_KEY;
+				#ifndef __APPLE__
+				if ((newModifiers & B_LEFT_COMMAND_KEY) == 0)
+					newModifiers &= ~B_COMMAND_KEY;
+				#endif
+			}
+			break;
+
+		#ifdef __APPLE__
+		case KEY_LEFTMETA:
+			if (state == WL_KEYBOARD_KEY_STATE_PRESSED)
+				newModifiers |= B_LEFT_COMMAND_KEY | B_COMMAND_KEY;
+			else {
+				newModifiers &= ~B_LEFT_COMMAND_KEY;
+				if ((newModifiers & B_RIGHT_COMMAND_KEY) == 0)
+					newModifiers &= ~B_COMMAND_KEY;
+			}
+			break;
+
+		case KEY_RIGHTMETA:
+			if (state == WL_KEYBOARD_KEY_STATE_PRESSED)
+				newModifiers |= B_RIGHT_COMMAND_KEY | B_COMMAND_KEY;
+			else {
+				newModifiers &= ~B_RIGHT_COMMAND_KEY;
 				if ((newModifiers & B_LEFT_COMMAND_KEY) == 0)
 					newModifiers &= ~B_COMMAND_KEY;
 			}
 			break;
+		#endif
 
 		case KEY_MENU:
 			if (state == WL_KEYBOARD_KEY_STATE_PRESSED)

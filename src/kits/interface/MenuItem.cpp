@@ -771,6 +771,19 @@ BMenuItem::_DrawShortcutSymbol(bool submenus)
 		where.x -= fBounds.Height() / 2;
 
 	const float ascent = MenuPrivate(fSuper).Ascent();
+#ifdef __APPLE__
+	bool commandShortcutDrawnAsText = false;
+	const char* commandGlyph = MenuPrivate::MenuItemCommandGlyph();
+	if ((fModifiers & B_COMMAND_KEY) != 0 && fShortcutChar > B_SPACE
+		&& fShortcutChar != B_DELETE && commandGlyph != NULL
+		&& commandGlyph[0] != '\0') {
+		BString shortcut(commandGlyph);
+		shortcut << fShortcutChar;
+		where.x -= font.StringWidth(commandGlyph);
+		fSuper->DrawString(shortcut.String(), where + BPoint(0, ascent));
+		commandShortcutDrawnAsText = true;
+	} else
+#endif
 	if ((fShortcutChar <= B_SPACE && kUTF8ControlMap[(int)fShortcutChar])
 		|| fShortcutChar == B_DELETE) {
 		_DrawControlChar(fShortcutChar, where + BPoint(0, ascent));
@@ -785,11 +798,16 @@ BMenuItem::_DrawShortcutSymbol(bool submenus)
 	// TODO: It would be nice to draw these taking into account the text (low)
 	// color.
 	if ((fModifiers & B_COMMAND_KEY) != 0) {
-		const BBitmap* command = MenuPrivate::MenuItemCommand();
-		const BRect &rect = command->Bounds();
-		where.x -= rect.Width() + 1;
-		where.x = floorf(where.x + 0.5f);
-		fSuper->DrawBitmap(command, where);
+	#ifdef __APPLE__
+		if (!commandShortcutDrawnAsText)
+	#endif
+		{
+			const BBitmap* command = MenuPrivate::MenuItemCommand();
+			const BRect &rect = command->Bounds();
+			where.x -= rect.Width() + 1;
+			where.x = floorf(where.x + 0.5f);
+			fSuper->DrawBitmap(command, where);
+		}
 	}
 
 	if ((fModifiers & B_CONTROL_KEY) != 0) {

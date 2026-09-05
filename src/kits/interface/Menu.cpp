@@ -2819,8 +2819,18 @@ BMenu::_ComputeColumnLayout(int32 index, bool bestFit, bool moveItems,
 
 	// Compute the extra space needed for shortcuts and submenus
 	if (command) {
-		frame.right
-			+= BPrivate::MenuPrivate::MenuItemCommand()->Bounds().Width() + 1;
+	#ifdef __APPLE__
+		const char* commandGlyph = BPrivate::MenuPrivate::MenuItemCommandGlyph();
+		if (commandGlyph != NULL && commandGlyph[0] != '\0') {
+			BFont font;
+			GetFont(&font);
+			frame.right += ceilf(font.StringWidth(commandGlyph)) + 1;
+		} else
+	#endif
+		{
+			frame.right
+				+= BPrivate::MenuPrivate::MenuItemCommand()->Bounds().Width() + 1;
+		}
 	}
 	if (control) {
 		frame.right

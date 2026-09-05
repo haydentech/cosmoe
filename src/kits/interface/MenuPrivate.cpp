@@ -334,6 +334,18 @@ MenuPrivate::MenuItemCommand()
 
 
 /* static */
+const char*
+MenuPrivate::MenuItemCommandGlyph()
+{
+#ifdef __APPLE__
+	return "\xE2\x8C\x98";	// Apple cloverleaf symbol
+#else
+	return NULL;
+#endif
+}
+
+
+/* static */
 const BBitmap*
 MenuPrivate::MenuItemMenu()
 {
