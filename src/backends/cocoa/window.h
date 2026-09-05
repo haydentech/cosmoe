@@ -105,7 +105,8 @@ status_t display_close_window(struct display* display, int32_t window_id);
 
 // Window management
 struct window* window_create(struct display* display, bool offscreen);
-struct window* window_popup_create(struct display* display, struct window* parent, int32_t x, int32_t y);
+struct window* window_popup_create(struct display* display, struct window* parent,
+	int32_t x, int32_t y, int32_t width, int32_t height);
 void window_get_position(struct window* window, int32_t* x, int32_t* y);
 void window_set_position(struct window* window, int32_t x, int32_t y);
 void window_get_decorator_size(struct window* window, int32_t* borderWidth, int32_t* tabHeight);

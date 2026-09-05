@@ -1714,7 +1714,8 @@ struct window* window_create(struct display* display, bool offscreen)
 	return window;
 }
 
-struct window* window_popup_create(struct display* display, struct window* parent, int32_t x, int32_t y)
+struct window* window_popup_create(struct display* display, struct window* parent,
+	int32_t x, int32_t y, int32_t width, int32_t height)
 {
 	if (!display)
 		return NULL;
@@ -1727,8 +1728,8 @@ struct window* window_popup_create(struct display* display, struct window* paren
 	window->is_offscreen = false;
 	window->is_popup = true;
 	window->initializing = true;
-	window->width = 640;
-	window->height = 480;
+	window->width = width;
+	window->height = height;
 	window->x = x;
 	window->y = y;
 	
