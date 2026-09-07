@@ -119,6 +119,7 @@ enum {
 #define MAX_WINDOWS 64
 #define CUSTOM_CURSOR_BASE 1000
 #define MAX_CUSTOM_CURSORS 256
+#define X11_WINDOW_FEEL_FLOATING_APP 4
 
 static Cursor s_custom_cursors[MAX_CUSTOM_CURSORS];
 static Display* s_custom_cursor_display;
@@ -188,6 +189,8 @@ struct window {
 	int max_width, max_height;
 	bool mapped;
 	bool hidden;  /* True = intentionally hidden via window_hide() */
+	bool floating_app;
+	struct window *floating_parent;
 	
 	/* Mouse position tracking for button events */
 	int mouse_x, mouse_y;
@@ -2387,10 +2390,39 @@ window_set_look(struct window *window, uint32_t look)
 void
 window_set_feel(struct window *window, uint32_t feel)
 {
+	struct window *parent = NULL;
+	int index;
+
 	if (window == NULL)
 		return;
 
 	window->feel = feel;
+	if (feel == X11_WINDOW_FEEL_FLOATING_APP) {
+		for (index = 0; index < window->display->num_windows; index++) {
+			struct window *candidate = window->display->windows[index];
+			if (candidate != window && candidate->mapped
+				&& !candidate->is_popup && !candidate->floating_app) {
+				parent = candidate;
+				break;
+			}
+		}
+	}
+
+	bool floating_app = feel == X11_WINDOW_FEEL_FLOATING_APP;
+	bool state_changed = window->floating_app != floating_app;
+	window->feel = feel;
+	window->floating_app = floating_app;
+	if (parent == window->floating_parent && !state_changed)
+		return;
+
+	if (parent != NULL)
+		XSetTransientForHint(window->display->xdisplay, window->xwindow,
+			parent->xwindow);
+	else
+		XDeleteProperty(window->display->xdisplay, window->xwindow,
+			XA_WM_TRANSIENT_FOR);
+	window->floating_parent = parent;
+	XFlush(window->display->xdisplay);
 }
 
 /* Create an override-redirect popup window suitable for menus. It doesn't
@@ -3097,6 +3129,8 @@ window_show(struct window *window)
 		X11_LOG("X11: window_show: window already visible (hidden=false), skipping\n");
 		return;
 	}
+	if (window->floating_app)
+		window_set_feel(window, window->feel);
 	X11_LOG("X11: window_show: mapping xwindow=%lu\n", (unsigned long)window->xwindow);
 	window->hidden = false;
 	window->mapped = true;

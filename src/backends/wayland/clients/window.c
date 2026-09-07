@@ -76,6 +76,7 @@ enum {
 
 enum {
 	COSMOE_WINDOW_LOOK_DESKTOP = 4,
+	COSMOE_WINDOW_FEEL_FLOATING_APP = 4,
 	COSMOE_WINDOW_FEEL_DESKTOP = 1024
 };
 
@@ -104,6 +105,7 @@ static void window_apply_panel_state(struct window *window);
 static void window_apply_desktop_state(struct window *window);
 static void window_destroy_layer_surface(struct window *window);
 static void window_apply_decoration_mode(struct window *window);
+static void window_sync_parent(struct window *window);
 static void display_notify_screen_change(struct display *display,
 	struct output *changedOutput);
 
@@ -695,6 +697,7 @@ struct window {
 	uint32_t look;
 	uint32_t feel;
 	int desktop_mode;
+	int always_on_top;
 	int redraw_inhibited;
 	int redraw_needed;
 	int redraw_task_scheduled;
@@ -6180,21 +6183,34 @@ window_apply_decoration_mode(struct window *window)
 static void
 window_sync_parent(struct window *window)
 {
+	struct window *parent = window->parent;
 	struct xdg_toplevel *parent_toplevel;
 
 	if (!window->xdg_surface)
 		return;
 
-	if (window->parent == window->last_parent)
+	if (parent == NULL && window->always_on_top && window->appid != NULL) {
+		struct window *candidate;
+		wl_list_for_each(candidate, &window->display->window_list, link) {
+			if (candidate != window && !candidate->hidden
+				&& !candidate->always_on_top && candidate->appid != NULL
+				&& strcmp(candidate->appid, window->appid) == 0) {
+				parent = candidate;
+				break;
+			}
+		}
+	}
+
+	if (parent == window->last_parent)
 		return;
 
-	if (window->parent)
-		parent_toplevel = window->parent->xdg_toplevel;
+	if (parent)
+		parent_toplevel = parent->xdg_toplevel;
 	else
 		parent_toplevel = NULL;
 
 	xdg_toplevel_set_parent(window->xdg_toplevel, parent_toplevel);
-	window->last_parent = window->parent;
+	window->last_parent = parent;
 }
 
 static void
@@ -6645,6 +6661,22 @@ window_set_feel(struct window *window, uint32_t feel)
 	window->feel = feel;
 	window->desktop_mode = window->look == COSMOE_WINDOW_LOOK_DESKTOP
 		&& window->feel == COSMOE_WINDOW_FEEL_DESKTOP;
+	window_toggle_always_on_top(window,
+		window->feel == COSMOE_WINDOW_FEEL_FLOATING_APP);
+}
+
+void
+window_toggle_always_on_top(struct window *window, int enabled)
+{
+	if (window == NULL || window->always_on_top == (enabled != 0))
+		return;
+
+	window->always_on_top = enabled != 0;
+	if (window->xdg_toplevel != NULL) {
+		window->last_parent = (struct window *)-1;
+		window_sync_parent(window);
+		wl_surface_commit(window->main_surface->surface);
+	}
 }
 
 void

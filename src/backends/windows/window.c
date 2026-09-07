@@ -119,6 +119,9 @@ struct window {
 	int min_width, min_height;
 	int max_width, max_height;
 	bool mapped;
+	uint32_t feel;
+	bool floating_app;
+	struct window *floating_parent;
 	
 	/* Mouse position tracking for button events */
 	int mouse_x, mouse_y;
@@ -1990,6 +1993,8 @@ window_show(struct window *window)
 	if (!window || !window->hwnd)
 		return;
 
+	if (window->floating_app)
+		window_set_feel(window, window->feel);
 	ShowWindow(window->hwnd, SW_SHOW);
 	window->mapped = true;
 }
@@ -2404,6 +2409,39 @@ window_set_appid(struct window *window, const char *app_id)
 	}
 
 	free(wAppId);
+}
+
+void
+window_set_feel(struct window *window, uint32_t feel)
+{
+	struct window *parent = NULL;
+	int index;
+
+	if (!window || !window->hwnd)
+		return;
+
+	if (feel == 4) {
+		for (index = 0; index < window->display->num_windows; index++) {
+			struct window *candidate = window->display->windows[index];
+			if (candidate != window && candidate->mapped
+				&& !candidate->is_popup && !candidate->floating_app) {
+				parent = candidate;
+				break;
+			}
+		}
+	}
+
+	if (parent == window->floating_parent && feel == window->feel)
+		return;
+
+	window->feel = feel;
+	window->floating_app = feel == 4;
+	window->floating_parent = parent;
+	SetWindowLongPtr(window->hwnd, GWLP_HWNDPARENT,
+		(LONG_PTR)(parent ? parent->hwnd : NULL));
+	if (parent)
+		SetWindowPos(window->hwnd, HWND_TOP, 0, 0, 0, 0,
+			SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
 }
 
 void

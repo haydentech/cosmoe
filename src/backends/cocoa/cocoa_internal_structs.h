@@ -80,6 +80,8 @@ struct window {
     bool is_popup;
     bool is_offscreen;
     bool initializing;
+	bool floating_app;
+	struct window* floating_parent;
     struct window* next;
     int32_t token;  /* BWindow object token for PortLink window identification */
 };
