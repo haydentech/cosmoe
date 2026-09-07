@@ -1998,6 +1998,47 @@ void window_set_app_id(struct window* window, const char* app_id)
 	(void)app_id;
 }
 
+void window_set_feel(struct window* window, uint32_t feel)
+{
+	if (!window)
+		return;
+
+	struct window* parent = NULL;
+	if (feel == 4) {
+		for (struct window* candidate = window->display->window_list;
+			candidate != NULL; candidate = candidate->next) {
+			if (candidate != window && !candidate->is_popup
+				&& !candidate->floating_app && candidate->nswindow
+				&& [(NSWindow*)candidate->nswindow isVisible]) {
+				parent = candidate;
+				break;
+			}
+		}
+	}
+
+	bool floatingApp = feel == 4;
+	bool stateChanged = window->floating_app != floatingApp;
+	window->floating_app = floatingApp;
+	if (parent == window->floating_parent && !stateChanged)
+		return;
+
+	window->floating_parent = parent;
+	void (^updateOwner)(void) = ^{
+		NSWindow* nswindow = (NSWindow*)window->nswindow;
+		if (!nswindow)
+			return;
+		if ([nswindow parentWindow])
+			[[nswindow parentWindow] removeChildWindow:nswindow];
+		if (parent && parent->nswindow)
+			[(NSWindow*)parent->nswindow addChildWindow:nswindow ordered:NSWindowAbove];
+		[nswindow setLevel:NSNormalWindowLevel];
+	};
+	if ([NSThread isMainThread])
+		updateOwner();
+	else
+		dispatch_sync(dispatch_get_main_queue(), updateOwner);
+}
+
 void window_set_parent(struct window* window, struct window* parent)
 {
 	if (!window || !parent)
@@ -2034,6 +2075,8 @@ void window_show(struct window* window)
 
 	if ([NSThread isMainThread]) {
 		@autoreleasepool {
+			if (window->floating_app)
+				window_set_feel(window, 4);
 			if (window->is_popup) {
 				// Ensure popup uses its final requested position before first paint.
 				NSRect frame = [nswindow frame];
@@ -2057,6 +2100,8 @@ void window_show(struct window* window)
 		[nswindow retain];
 		dispatch_async(dispatch_get_main_queue(), ^{
 			@autoreleasepool {
+				if (window->floating_app)
+					window_set_feel(window, 4);
 				if (window->is_popup) {
 					// Ensure popup uses its final requested position before first paint.
 					NSRect frame = [nswindow frame];

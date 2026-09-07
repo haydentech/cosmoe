@@ -35,9 +35,6 @@
   - This will likely never be fixed as GNOME intentionally omits support for the zwlr_layer_shell_v1 protocol, so no third-party panels are possible.  Yet another reason to dislike GNOME!
   - Menus also work very inconsistently in Deskbar under Mutter, though the reason is less clear.  Other apps' menus work fine under Mutter.
 
-- The first click in a dialog box sometimes gets ignored or not fully processed
-  - e.g. The OK button will depress but will require a second click to invoke
-
 - `B_OP_SELECT` drawing should not transfer transparent pixels, but it does
   - `B_OP_SELECT` bitmap drawing transfers transparency to the target surface.
   - This can lead to views revealing the view underneath, or in the case of Wayland, views and windows that shows all the way through the window itself.
@@ -54,7 +51,7 @@
   - Haiku shifts the drawing up and left by another half-pixel to compensate in even-pen-width situations, so we could to the same, but I'm not sure that's best.  It's a special-case fix, not a general solution.
 
 - Many window looks and feels are not reflected in the backend
-  - If the app asks for a utility window, or a floating window, currently you get just get a regular window.
+  - If the app asks for a utility window look, or a system floating feel, currently you get just get a regular window.
   - Only borderless windows are currently supported (ironically via B_BORDERED_WINDOW)
 
 - Enhancement: optional native file open/save dialogs on Windows and Mac

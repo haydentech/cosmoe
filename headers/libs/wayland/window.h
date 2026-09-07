@@ -448,6 +448,9 @@ window_create_custom(struct display *display);
 void
 window_set_flags(struct window *window, uint32_t flags);
 
+void
+window_toggle_always_on_top(struct window *window, int enabled);
+
 int
 window_uses_panel(struct window *window);
 

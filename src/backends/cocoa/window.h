@@ -114,6 +114,7 @@ struct windowframe* windowframe_create(struct window* window, void* data);
 void window_destroy(struct window* window);
 void window_set_title(struct window* window, const char* title);
 void window_set_app_id(struct window* window, const char* app_id);
+void window_set_feel(struct window* window, uint32_t feel);
 void window_set_parent(struct window* window, struct window* parent);
 status_t window_set_native_menubar(struct window* window,
 	const cosmoe_native_menu_item* items, int32_t count,

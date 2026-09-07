@@ -256,6 +256,11 @@ virtual backend_window_t WindowPopupCreate(backend_display_t display, int32_t to
 		window_set_title((struct window*)window, title);
 	}
 
+	virtual void WindowSetFeel(backend_window_t window, uint32_t feel)
+	{
+		window_set_feel((struct window*)window, feel);
+	}
+
 	virtual void WindowSetAppId(backend_window_t window, const char* appId)
 	{
 		window_set_app_id((struct window*)window, appId);

@@ -288,6 +288,11 @@ public:
 		window_set_title((struct window*)window, title);
 	}
 
+	virtual void WindowSetFeel(backend_window_t window, uint32_t feel)
+	{
+		window_set_feel((struct window*)window, feel);
+	}
+
 	virtual void WindowSetAppId(backend_window_t window, const char* appId)
 	{
 		window_set_appid((struct window*)window, appId);
