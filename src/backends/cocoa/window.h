@@ -104,7 +104,8 @@ status_t display_minimize_window(struct display* display, int32_t window_id, boo
 status_t display_close_window(struct display* display, int32_t window_id);
 
 // Window management
-struct window* window_create(struct display* display, bool offscreen);
+struct window* window_create(struct display* display, uint32_t look,
+	uint32_t flags, bool offscreen);
 struct window* window_popup_create(struct display* display, struct window* parent,
 	int32_t x, int32_t y, int32_t width, int32_t height);
 void window_get_position(struct window* window, int32_t* x, int32_t* y);
@@ -115,6 +116,7 @@ void window_destroy(struct window* window);
 void window_set_title(struct window* window, const char* title);
 void window_set_app_id(struct window* window, const char* app_id);
 void window_set_feel(struct window* window, uint32_t feel);
+void window_set_flags(struct window* window, uint32_t flags);
 void window_set_parent(struct window* window, struct window* parent);
 status_t window_set_native_menubar(struct window* window,
 	const cosmoe_native_menu_item* items, int32_t count,

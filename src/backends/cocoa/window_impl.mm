@@ -499,6 +499,17 @@ static uint32_t translate_macos_keycode(uint32_t macKeyCode) {
 
 @end
 
+@interface CosmoePaletteWindow : NSPanel
+@end
+
+@implementation CosmoePaletteWindow
+
+- (BOOL)canBecomeKeyWindow {
+	return YES;
+}
+
+@end
+
 @interface CosmoeView : NSView
 @property (nonatomic, assign) struct widget* widget;
 @property (nonatomic, assign) NSEventModifierFlags lastModifierFlags;
@@ -911,14 +922,23 @@ create_native_window(struct window* window, bool popup)
 		nswindow = panel;
 	} else {
 		NSWindowStyleMask styleMask = NSWindowStyleMaskTitled |
-					      NSWindowStyleMaskClosable |
 					      NSWindowStyleMaskMiniaturizable |
 					      NSWindowStyleMaskResizable;
-
-		nswindow = [[CosmoeWindow alloc] initWithContentRect:contentRect
-						      styleMask:styleMask
-							backing:NSBackingStoreBuffered
-							  defer:NO];
+		if ((window->flags & 0x00000020) == 0)
+			styleMask |= NSWindowStyleMaskClosable;
+		if (window->look == 7) {
+			styleMask |= NSWindowStyleMaskUtilityWindow;
+			nswindow = [[CosmoePaletteWindow alloc] initWithContentRect:contentRect
+									   styleMask:styleMask
+									     backing:NSBackingStoreBuffered
+									       defer:NO];
+			[(NSPanel*)nswindow setFloatingPanel:NO];
+		} else {
+			nswindow = [[CosmoeWindow alloc] initWithContentRect:contentRect
+							      styleMask:styleMask
+								backing:NSBackingStoreBuffered
+								  defer:NO];
+		}
 	}
 
 	window->nswindow = nswindow;
@@ -1676,7 +1696,8 @@ status_t display_close_window(struct display* display, int32_t window_id)
 }
 
 // Window management
-struct window* window_create(struct display* display, bool offscreen)
+struct window* window_create(struct display* display, uint32_t look,
+	uint32_t flags, bool offscreen)
 {
 	if (!display)
 		return NULL;
@@ -1686,6 +1707,8 @@ struct window* window_create(struct display* display, bool offscreen)
 		return NULL;
 	
 	window->display = display;
+	window->look = look;
+	window->flags = flags;
 	window->is_offscreen = offscreen;
 	window->is_popup = false;
 	window->initializing = true;
@@ -2037,6 +2060,29 @@ void window_set_feel(struct window* window, uint32_t feel)
 		updateOwner();
 	else
 		dispatch_sync(dispatch_get_main_queue(), updateOwner);
+}
+
+void window_set_flags(struct window* window, uint32_t flags)
+{
+	if (!window || window->flags == flags)
+		return;
+
+	window->flags = flags;
+	void (^updateStyle)(void) = ^{
+		NSWindow* nswindow = (NSWindow*)window->nswindow;
+		if (!nswindow)
+			return;
+		NSWindowStyleMask styleMask = [nswindow styleMask];
+		if (flags & 0x00000020)
+			styleMask &= ~NSWindowStyleMaskClosable;
+		else
+			styleMask |= NSWindowStyleMaskClosable;
+		[nswindow setStyleMask:styleMask];
+	};
+	if ([NSThread isMainThread])
+		updateStyle();
+	else
+		dispatch_sync(dispatch_get_main_queue(), updateStyle);
 }
 
 void window_set_parent(struct window* window, struct window* parent)

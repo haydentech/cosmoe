@@ -74,7 +74,8 @@ struct message_header {
 };
 
 enum {
-	COSMOE_WINDOW_FLAG_NOT_RESIZABLE				= 0x00000002
+	COSMOE_WINDOW_FLAG_NOT_RESIZABLE				= 0x00000002,
+	COSMOE_WINDOW_FLAG_NOT_CLOSABLE				= 0x00000020
 };
 
 enum {
@@ -272,6 +273,7 @@ struct display {
 	Atom net_wm_window_type;
 	Atom net_wm_window_type_normal;
 	Atom net_wm_window_type_dock;
+	Atom net_wm_window_type_utility;
 	Atom net_wm_state_skip_taskbar;
 	Atom net_wm_state_skip_pager;
 	Atom net_wm_state_sticky;
@@ -357,12 +359,16 @@ struct motif_wm_hints {
 };
 
 enum {
+	MWM_HINTS_FUNCTIONS = 1L << 0,
 	MWM_HINTS_DECORATIONS = 1L << 1,
 	MWM_DECOR_ALL = 1L << 0,
 	MWM_DECOR_BORDER = 1L << 1,
+	MWM_FUNC_ALL = 1L << 0,
+	MWM_FUNC_CLOSE = 1L << 5,
 };
 
 enum {
+	X11_WINDOW_LOOK_FLOATING = 7,
 	X11_WINDOW_LOOK_NO_BORDER = 19,
 	X11_WINDOW_LOOK_BORDERED = 20,
 };
@@ -375,6 +381,10 @@ window_apply_decoration_hints(struct window *window, uint32_t look)
 
 	memset(&hints, 0, sizeof(hints));
 	hints.flags = MWM_HINTS_DECORATIONS;
+	if (window->flags & COSMOE_WINDOW_FLAG_NOT_CLOSABLE) {
+		hints.flags |= MWM_HINTS_FUNCTIONS;
+		hints.functions = MWM_FUNC_ALL | MWM_FUNC_CLOSE;
+	}
 
 	switch (look) {
 		case 20: /* B_BORDERED_WINDOW_LOOK */
@@ -444,6 +454,14 @@ window_apply_look_hints(struct window *window, uint32_t look)
 	if (look == X11_WINDOW_LOOK_NO_BORDER) {
 		window_apply_decoration_hints(window, look);
 		window_set_type(window, window->display->net_wm_window_type_normal);
+		window_set_states(window, NULL, 0);
+		return;
+	}
+
+	if (look == X11_WINDOW_LOOK_FLOATING) {
+		window_apply_decoration_hints(window, look);
+		window_set_type(window,
+			window->display->net_wm_window_type_utility);
 		window_set_states(window, NULL, 0);
 		return;
 	}
@@ -1253,6 +1271,8 @@ display_create(int *argc, char **argv)
 		"_NET_WM_WINDOW_TYPE_NORMAL", False);
 	display->net_wm_window_type_dock = XInternAtom(display->xdisplay,
 		"_NET_WM_WINDOW_TYPE_DOCK", False);
+	display->net_wm_window_type_utility = XInternAtom(display->xdisplay,
+		"_NET_WM_WINDOW_TYPE_UTILITY", False);
 	display->net_wm_state_skip_taskbar = XInternAtom(display->xdisplay,
 		"_NET_WM_STATE_SKIP_TASKBAR", False);
 	display->net_wm_state_skip_pager = XInternAtom(display->xdisplay,
@@ -2422,6 +2442,17 @@ window_set_feel(struct window *window, uint32_t feel)
 		XDeleteProperty(window->display->xdisplay, window->xwindow,
 			XA_WM_TRANSIENT_FOR);
 	window->floating_parent = parent;
+	XFlush(window->display->xdisplay);
+}
+
+void
+window_set_flags(struct window *window, uint32_t flags)
+{
+	if (window == NULL)
+		return;
+
+	window->flags = flags;
+	window_apply_look_hints(window, window->look);
 	XFlush(window->display->xdisplay);
 }
 

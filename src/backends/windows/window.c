@@ -119,6 +119,8 @@ struct window {
 	int min_width, min_height;
 	int max_width, max_height;
 	bool mapped;
+	uint32_t look;
+	uint32_t flags;
 	uint32_t feel;
 	bool floating_app;
 	struct window *floating_parent;
@@ -1237,6 +1239,8 @@ window_delete_custom_cursor(int32_t cursorID)
 
 struct window_create_params {
 	struct display* display;
+	uint32_t look;
+	uint32_t flags;
 	struct window* result;
 	HANDLE completion_event;
 };
@@ -1256,7 +1260,8 @@ struct window_destroy_params {
 };
 
 /* Forward declarations */
-static struct window *window_create_internal(struct display *display);
+static struct window *window_create_internal(struct display *display,
+	uint32_t look, uint32_t flags);
 static struct window *window_popup_create_internal(struct display *display, 
                                                      struct window *parent_window, 
                                                      int x, int y);
@@ -1868,7 +1873,8 @@ display_run(struct display *display)
 			if (msg.message == WM_CREATE_WINDOW_MARSHAL) {
 				debug_log("display_run: Handling WM_CREATE_WINDOW_MARSHAL");
 				struct window_create_params* params = (struct window_create_params*)msg.lParam;
-				params->result = window_create_internal(params->display);
+				params->result = window_create_internal(params->display,
+					params->look, params->flags);
 				SetEvent(params->completion_event);
 				continue;
 			}
@@ -2088,7 +2094,7 @@ display_get_screen_dimensions(struct display *display, struct rectangle *allocat
 
 // Internal function to create window - must be called on display thread
 static struct window *
-window_create_internal(struct display *display)
+window_create_internal(struct display *display, uint32_t look, uint32_t flags)
 {
 	debug_log("window_create_internal: ENTRY - display=%p, thread=%lu", display, GetCurrentThreadId());
 	
@@ -2100,6 +2106,8 @@ window_create_internal(struct display *display)
 	debug_log("window_create_internal: Allocated window structure at %p", window);
 	
 	window->display = display;
+	window->look = look;
+	window->flags = flags;
 	window->width = 640;
 	window->height = 480;
 	window->min_width = 1;
@@ -2113,6 +2121,14 @@ window_create_internal(struct display *display)
 	/* Create the Win32 window */
 	DWORD style = WS_OVERLAPPEDWINDOW;
 	DWORD exStyle = WS_EX_APPWINDOW;
+	if (flags & 0x00000020)
+		style &= ~WS_SYSMENU;
+	if (look == 7) {
+		style = WS_CAPTION | WS_SYSMENU | WS_THICKFRAME;
+		exStyle = WS_EX_TOOLWINDOW | WS_EX_WINDOWEDGE;
+	}
+	if (flags & 0x00000020)
+		style &= ~WS_SYSMENU;
 	
 	// Convert default title to UTF-16
 	const char* default_title = "AAAAAAAAAA";
@@ -2167,7 +2183,7 @@ window_create_internal(struct display *display)
 }
 
 struct window *
-window_create(struct display *display)
+window_create(struct display *display, uint32_t look, uint32_t flags)
 {
 	debug_log("window_create: ENTRY - display=%p, caller_thread=%lu, display_thread=%lu", 
 		display, GetCurrentThreadId(), display ? display->thread_id : 0);
@@ -2176,7 +2192,7 @@ window_create(struct display *display)
 	if (!display || display->thread_id == 0 || GetCurrentThreadId() == display->thread_id) {
 		debug_log("window_create: Creating directly (thread_id=%lu, current=%lu)", 
 			display ? display->thread_id : 0, GetCurrentThreadId());
-		return window_create_internal(display);
+		return window_create_internal(display, look, flags);
 	}
 	
 	// We're on a different thread - marshal to display thread
@@ -2184,6 +2200,8 @@ window_create(struct display *display)
 	
 	struct window_create_params params;
 	params.display = display;
+	params.look = look;
+	params.flags = flags;
 	params.result = NULL;
 	params.completion_event = CreateEvent(NULL, FALSE, FALSE, NULL);
 	
@@ -2442,6 +2460,24 @@ window_set_feel(struct window *window, uint32_t feel)
 	if (parent)
 		SetWindowPos(window->hwnd, HWND_TOP, 0, 0, 0, 0,
 			SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
+}
+
+void
+window_set_flags(struct window *window, uint32_t flags)
+{
+	if (!window || !window->hwnd || window->flags == flags)
+		return;
+
+	window->flags = flags;
+	LONG_PTR style = GetWindowLongPtr(window->hwnd, GWL_STYLE);
+	if (flags & 0x00000020)
+		style &= ~WS_SYSMENU;
+	else
+		style |= WS_SYSMENU;
+	SetWindowLongPtr(window->hwnd, GWL_STYLE, style);
+	SetWindowPos(window->hwnd, NULL, 0, 0, 0, 0,
+		SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE
+		| SWP_FRAMECHANGED);
 }
 
 void

@@ -198,10 +198,9 @@ public:
 		int32_t token, uint32_t look, uint32_t feel, uint32_t flags, bool offscreen,
 		void* data)
 	{
-		(void)look;
 		(void)feel;
-		(void)flags;
-		struct window* win = window_create((struct display*)display, offscreen);
+		struct window* win = window_create((struct display*)display, look,
+			flags, offscreen);
 		if (win) {
 			window_set_token(win, token);
 			window_set_user_data((struct window*)win, data);
@@ -259,6 +258,11 @@ virtual backend_window_t WindowPopupCreate(backend_display_t display, int32_t to
 	virtual void WindowSetFeel(backend_window_t window, uint32_t feel)
 	{
 		window_set_feel((struct window*)window, feel);
+	}
+
+	virtual void WindowSetFlags(backend_window_t window, uint32_t flags)
+	{
+		window_set_flags((struct window*)window, flags);
 	}
 
 	virtual void WindowSetAppId(backend_window_t window, const char* appId)
