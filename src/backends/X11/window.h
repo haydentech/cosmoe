@@ -119,6 +119,9 @@ window_set_look(struct window *window, uint32_t look);
 void
 window_set_feel(struct window *window, uint32_t feel);
 
+void
+window_set_flags(struct window *window, uint32_t flags);
+
 /* Create a popup (menu) window. This should be override-redirect and
 	borderless to behave like a popup (menu) window. parent_window is
 	ignored on X11 but kept for API compatibility. */

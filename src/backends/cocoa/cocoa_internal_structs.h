@@ -77,6 +77,8 @@ struct window {
     char* title;
     int32_t x,y;
     int32_t width,height;
+	uint32_t look;
+	uint32_t flags;
     bool is_popup;
     bool is_offscreen;
     bool initializing;

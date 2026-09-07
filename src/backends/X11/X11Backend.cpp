@@ -462,6 +462,11 @@ public:
 		window_set_feel((struct window*)window, feel);
 	}
 
+	virtual void WindowSetFlags(backend_window_t window, uint32_t flags)
+	{
+		window_set_flags((struct window*)window, flags);
+	}
+
 	virtual void WindowResize(backend_window_t window, float width, float height,
 					  float* outWidth, float* outHeight)
 	{

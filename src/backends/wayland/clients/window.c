@@ -71,6 +71,7 @@
 
 enum {
 	COSMOE_WINDOW_FLAG_NOT_RESIZABLE = 0x00000002,
+	COSMOE_WINDOW_FLAG_NOT_CLOSABLE = 0x00000020,
 	COSMOE_WINDOW_FLAG_NOT_ZOOMABLE = 0x00000040
 };
 
@@ -3735,6 +3736,7 @@ window_prefers_system_decorations(struct window *window)
 	return window != NULL
 		&& !window->custom
 		&& !window_uses_panel(window)
+		&& !(window->cosmoe_flags & COSMOE_WINDOW_FLAG_NOT_CLOSABLE)
 		&& window->display->decoration_manager != NULL;
 }
 
@@ -3742,6 +3744,8 @@ static uint32_t
 window_frame_buttons(struct window *window)
 {
 	uint32_t buttons = FRAME_BUTTON_ALL;
+	if (window->cosmoe_flags & COSMOE_WINDOW_FLAG_NOT_CLOSABLE)
+		buttons &= ~FRAME_BUTTON_CLOSE;
 
 	if (window->cosmoe_flags & (COSMOE_WINDOW_FLAG_NOT_RESIZABLE
 		| COSMOE_WINDOW_FLAG_NOT_ZOOMABLE)) {
@@ -7670,8 +7674,9 @@ window_set_flags(struct window *window, uint32_t flags)
 			frame_set_flag(window->frame->frame, FRAME_FLAG_NO_RESIZE);
 		else
 			frame_unset_flag(window->frame->frame, FRAME_FLAG_NO_RESIZE);
+		window_frame_disable_client_side_decorations(window);
+		window_frame_enable_client_side_decorations(window);
 	}
-
 	if (window->layer_surface != NULL) {
 		if (window->desktop_mode)
 			window_apply_desktop_state(window);

@@ -119,7 +119,7 @@ display_get_screen_dimensions(struct display *display, struct rectangle *allocat
 
 /* Window functions */
 struct window *
-window_create(struct display *display);
+window_create(struct display *display, uint32_t look, uint32_t flags);
 
 /* Create a popup (menu) window */
 struct window *
@@ -142,6 +142,9 @@ window_set_appid(struct window *window, const char *app_id);
 
 void
 window_set_feel(struct window *window, uint32_t feel);
+
+void
+window_set_flags(struct window *window, uint32_t flags);
 
 int32_t
 window_create_custom_cursor(const uint8_t* bits, size_t bitsLength,
