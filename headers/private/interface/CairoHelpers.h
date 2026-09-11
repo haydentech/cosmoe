@@ -267,6 +267,11 @@ class CairoContext {
 			cairo_fill(cr);
 			cairo_pop_group_to_source(cr);
 			cairo_paint_with_alpha(cr, 0.5);
+		} else if (drawingMode == B_OP_COPY) {
+			cairo_save(cr);
+			cairo_set_operator(cr, CAIRO_OPERATOR_OVER);
+			cairo_fill(cr);
+			cairo_restore(cr);
 		} else {
 			cairo_fill(cr);
 		}
@@ -281,6 +286,11 @@ class CairoContext {
 			cairo_stroke(cr);
 			cairo_pop_group_to_source(cr);
 			cairo_paint_with_alpha(cr, 0.5);
+		} else if (drawingMode == B_OP_COPY) {
+			cairo_save(cr);
+			cairo_set_operator(cr, CAIRO_OPERATOR_OVER);
+			cairo_stroke(cr);
+			cairo_restore(cr);
 		} else {
 			cairo_stroke(cr);
 		}
@@ -296,6 +306,11 @@ class CairoContext {
 			pango_cairo_show_layout(cr, layout);
 			cairo_pop_group_to_source(cr);
 			cairo_paint_with_alpha(cr, 0.5);
+		} else if (drawingMode == B_OP_COPY) {
+			cairo_save(cr);
+			cairo_set_operator(cr, CAIRO_OPERATOR_OVER);
+			pango_cairo_show_layout(cr, layout);
+			cairo_restore(cr);
 		} else {
 			pango_cairo_show_layout(cr, layout);
 		}

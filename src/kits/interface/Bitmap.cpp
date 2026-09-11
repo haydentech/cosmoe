@@ -922,7 +922,42 @@ BBitmap::FindView(BPoint point) const
 bool
 BBitmap::Lock()
 {
-	return fWindow != NULL ? fWindow->Lock() : false;
+	if (fWindow == NULL || !fWindow->Lock())
+		return false;
+
+	if (fBasePointer == NULL || fWindow->fBackingSurface == NULL)
+		return true;
+
+	int32 width = fBounds.IntegerWidth() + 1;
+	int32 height = fBounds.IntegerHeight() + 1;
+	if (width <= 0 || height <= 0)
+		return true;
+
+	pthread_mutex_lock(&fWindow->fBackingSurfaceLock);
+	cairo_surface_t* copySurface = cairo_image_surface_create(
+		CAIRO_FORMAT_ARGB32, width, height);
+	if (copySurface != NULL
+		&& cairo_surface_status(copySurface) == CAIRO_STATUS_SUCCESS) {
+		uint8* data = cairo_image_surface_get_data(copySurface);
+		int32 stride = cairo_image_surface_get_stride(copySurface);
+		if (data != NULL && stride > 0
+			&& BPrivate::ConvertBits(fBasePointer, data, fSize, stride * height,
+				fBytesPerRow, stride, fColorSpace, B_RGBA32, width, height) == B_OK) {
+			cairo_surface_mark_dirty(copySurface);
+			cairo_t* cr = cairo_create(fWindow->fBackingSurface);
+			if (cr != NULL && cairo_status(cr) == CAIRO_STATUS_SUCCESS) {
+				cairo_set_operator(cr, CAIRO_OPERATOR_SOURCE);
+				cairo_set_source_surface(cr, copySurface, 0.0, 0.0);
+				cairo_paint(cr);
+				cairo_destroy(cr);
+			} else if (cr != NULL)
+				cairo_destroy(cr);
+		}
+		cairo_surface_destroy(copySurface);
+	}
+	pthread_mutex_unlock(&fWindow->fBackingSurfaceLock);
+
+	return true;
 }
 
 
@@ -1138,12 +1173,26 @@ BBitmap::_AssertPointer()
 		return;
 	}
 
+	bool hasOpaqueBitmapBase = fColorSpace == B_RGB32
+		|| fColorSpace == B_RGB32_BIG;
+	if (hasOpaqueBitmapBase) {
+		uint8* data = cairo_image_surface_get_data(copySurface);
+		int32 stride = cairo_image_surface_get_stride(copySurface);
+		if (data == NULL || stride <= 0
+			|| BPrivate::ConvertBits(fBasePointer, data, fSize, stride * height,
+				fBytesPerRow, stride, fColorSpace, B_RGBA32, width, height) != B_OK) {
+			hasOpaqueBitmapBase = false;
+		} else
+			cairo_surface_mark_dirty(copySurface);
+	}
+
 	if (fWindow->DisplayScale() > 100) {
 		double inverseScale = 100.0 / (double)fWindow->DisplayScale();
 		cairo_scale(cr, inverseScale, inverseScale);
 	}
 
-	cairo_set_operator(cr, CAIRO_OPERATOR_SOURCE);
+	cairo_set_operator(cr, hasOpaqueBitmapBase ? CAIRO_OPERATOR_OVER
+		: CAIRO_OPERATOR_SOURCE);
 	cairo_set_source_surface(cr, fWindow->fBackingSurface, 0.0, 0.0);
 	cairo_paint(cr);
 	cairo_destroy(cr);
