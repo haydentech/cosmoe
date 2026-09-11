@@ -170,7 +170,8 @@ prepare_bitmap_bits_for_cairo_argb32(const uint8* sourceBits,
 
 static inline cairo_surface_t*
 create_opaque_copy_surface_from_cairo_surface(cairo_surface_t* sourceSurface,
-	int32 width, int32 height)
+	int32 width, int32 height, const uint8* opaqueFallbackBits = NULL,
+	int32 fallbackStride = 0)
 {
 	if (sourceSurface == NULL || width <= 0 || height <= 0)
 		return NULL;
@@ -192,7 +193,19 @@ create_opaque_copy_surface_from_cairo_surface(cairo_surface_t* sourceSurface,
 		return NULL;
 	}
 
-	cairo_set_operator(cr, CAIRO_OPERATOR_SOURCE);
+	if (opaqueFallbackBits != NULL && fallbackStride >= width * 4) {
+		uint8* data = cairo_image_surface_get_data(opaqueSurface);
+		int32 stride = cairo_image_surface_get_stride(opaqueSurface);
+		for (int32 y = 0; y < height; y++) {
+			const uint8* sourceRow = opaqueFallbackBits + y * fallbackStride;
+			uint8* destinationRow = data + y * stride;
+			force_opaque_rgba_row_scalar(sourceRow, destinationRow, width);
+		}
+		cairo_surface_mark_dirty(opaqueSurface);
+		cairo_set_operator(cr, CAIRO_OPERATOR_OVER);
+	} else {
+		cairo_set_operator(cr, CAIRO_OPERATOR_SOURCE);
+	}
 	cairo_set_source_surface(cr, sourceSurface, 0.0, 0.0);
 	cairo_paint(cr);
 	cairo_destroy(cr);

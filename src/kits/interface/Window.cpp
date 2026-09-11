@@ -5351,6 +5351,16 @@ BWindow::_SanitizeMessage(BMessage* message, BHandler* target, bool usePreferred
 		case B_MOUSE_UP:
 		case B_MOUSE_DOWN:
 		{
+			int32 buttons = 0;
+			if (message->FindInt32("buttons", &buttons) == B_OK) {
+				BView::sLastButtonState[B_PRIMARY_MOUSE_BUTTON]
+					= (buttons & B_PRIMARY_MOUSE_BUTTON) != 0;
+				BView::sLastButtonState[B_SECONDARY_MOUSE_BUTTON]
+					= (buttons & B_SECONDARY_MOUSE_BUTTON) != 0;
+				BView::sLastButtonState[B_TERTIARY_MOUSE_BUTTON]
+					= (buttons & B_TERTIARY_MOUSE_BUTTON) != 0;
+			}
+
 			BPoint where;
 			if (message->FindPoint("window_where", &where) != B_OK)
 				break;

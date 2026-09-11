@@ -2881,7 +2881,8 @@ BView::DrawBitmapAsync(const BBitmap* bitmap, BRect bitmapRect /* source */, BRe
 	// If the source image is bigger than the destination rectangle, it's scaled to fit.
 
 	// Check if bitmap accepts views (has an offscreen window for rendering)
-	if (bitmap->Flags() & B_BITMAP_ACCEPTS_VIEWS) {
+	if ((bitmap->Flags() & B_BITMAP_ACCEPTS_VIEWS)
+		&& _BitmapColorSpaceHasAlpha(bitmap->ColorSpace())) {
 		// Copy bits from the BBitmap's window backing store
 		if (bitmap->fWindow != NULL && bitmap->fWindow->fBackingSurface != NULL) {
 			int width = bitmap->Bounds().IntegerWidth() + 1;
@@ -2891,11 +2892,20 @@ BView::DrawBitmapAsync(const BBitmap* bitmap, BRect bitmapRect /* source */, BRe
 			if (fState->drawing_mode == B_OP_COPY
 				|| !_BitmapColorSpaceHasAlpha(bitmap->ColorSpace())) {
 				opaqueCopySurface = create_opaque_copy_surface_from_cairo_surface(
-					sourceSurface, width, height);
+					sourceSurface, width, height,
+					fState->drawing_mode == B_OP_COPY
+						&& _BitmapColorSpaceHasAlpha(bitmap->ColorSpace())
+						? bitmap->fBasePointer : NULL,
+					bitmap->BytesPerRow());
 				if (opaqueCopySurface != NULL)
 					sourceSurface = opaqueCopySurface;
 			}
 			cairo_save(cr);
+			// Like the regular Bits() path, constrain B_OP_COPY to the bitmap's
+			// destination. Otherwise transparent source pixels clear the view.
+			cairo_rectangle(cr, viewRect.left - 0.5, viewRect.top - 0.5,
+				viewRect.Width() + 1, viewRect.Height() + 1);
+			cairo_clip(cr);
 			
 			// Calculate scaling
 			double sourceWidth = bitmapRect.Width() + 1.0;
@@ -3218,6 +3228,8 @@ BView::DrawBitmapAsync(const BBitmap* bitmap, BPoint where)
 		cairo_format_t format = color_space_to_cairo_format(bitmap->ColorSpace());
 		int stride = cairo_format_stride_for_width(format, width);
 		unsigned char* premultipliedBits = NULL;
+		cairo_surface_t* imageSurface = NULL;
+		bool destroyImageSurface = false;
 
 #if DRAW
 		BRect windowViewRect(ConvertToWindow(fBounds.OffsetToCopy(B_ORIGIN)));
@@ -3229,16 +3241,33 @@ BView::DrawBitmapAsync(const BBitmap* bitmap, BPoint where)
 			&fBounds, &windowViewRect, false, _DisplayScaleFactor(fOwner),
 			updateRect);
 
-		const unsigned char* sourceBits = (const unsigned char*)bitmap->Bits();
-		if (!prepare_bitmap_bits_for_cairo_argb32((const uint8*)sourceBits,
-				format, bitmap->ColorSpace(), width, height, stride,
-				(const uint8**)&sourceBits, (uint8**)&premultipliedBits,
-				fState->drawing_mode == B_OP_COPY)) {
-			return;
+		if ((bitmap->Flags() & B_BITMAP_ACCEPTS_VIEWS) != 0
+			&& _BitmapColorSpaceHasAlpha(bitmap->ColorSpace())
+			&& bitmap->fWindow != NULL
+			&& bitmap->fWindow->fBackingSurface != NULL) {
+			imageSurface = bitmap->fWindow->fBackingSurface;
+			if (fState->drawing_mode == B_OP_COPY) {
+				imageSurface = create_opaque_copy_surface_from_cairo_surface(
+					bitmap->fWindow->fBackingSurface, width, height,
+					bitmap->fBasePointer, bitmap->BytesPerRow());
+				destroyImageSurface = true;
+			}
+		} else {
+			const unsigned char* sourceBits = (const unsigned char*)bitmap->Bits();
+			if (!prepare_bitmap_bits_for_cairo_argb32((const uint8*)sourceBits,
+					format, bitmap->ColorSpace(), width, height, stride,
+					(const uint8**)&sourceBits, (uint8**)&premultipliedBits,
+					fState->drawing_mode == B_OP_COPY)) {
+				return;
+			}
+
+			imageSurface = cairo_image_surface_create_for_data((unsigned char*)sourceBits,
+				format, width, height, stride);
+			destroyImageSurface = true;
 		}
 
-		cairo_surface_t* imageSurface = cairo_image_surface_create_for_data(
-			(unsigned char*)sourceBits, format, width, height, stride);
+		if (imageSurface == NULL)
+			return;
 		if (cairo_surface_status(imageSurface) != CAIRO_STATUS_SUCCESS) {
 			fprintf(stderr,
 				"BView::DrawBitmapAsync() - cairo_image_surface_create_for_data failed: %s\n",
@@ -3289,7 +3318,8 @@ BView::DrawBitmapAsync(const BBitmap* bitmap, BPoint where)
 			cairo_fill(cr);
 		}
 
-		cairo_surface_destroy(imageSurface);
+		if (destroyImageSurface)
+			cairo_surface_destroy(imageSurface);
 		if (premultipliedBits != NULL)
 			free(premultipliedBits);
 #endif
@@ -4212,6 +4242,23 @@ BView::StrokePolygon(const BPoint* pointArray, int32 numPoints, BRect bounds,
 			cairo_close_path(cr);
 		}
 		cr.Stroke();
+
+		if (updateRect == NULL) {
+			BRect dirtyRect = ConvertToWindow(polygon.Frame());
+			dirtyRect.InsetBy(-ceilf(PenSize() / 2.0f),
+				-ceilf(PenSize() / 2.0f));
+			pthread_mutex_lock(&fOwner->fBackingSurfaceLock);
+			fOwner->fBackingSurfaceDirtyRegion.Include(dirtyRect);
+			pthread_mutex_unlock(&fOwner->fBackingSurfaceLock);
+
+			if (fOwner->fWindowToken != B_NULL_TOKEN) {
+				BEGIN_MESSAGE
+				fLink->StartMessage(AS_FORCE_UPDATE);
+				fLink->Attach<int32_t>(fOwner->fWindowToken);
+				fLink->Attach<BRect>(dirtyRect);
+				fLink->Flush();
+			}
+		}
 	}
 #endif
 }
