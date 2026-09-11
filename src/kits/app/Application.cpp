@@ -430,6 +430,9 @@ BApplication::~BApplication()
 	// unregister from the roster
 	BPrivate::UnregisterRemoteAppMessenger();
 
+	delete static_cast<BCursor*>(fCursorData);
+	fCursorData = NULL;
+
 	// uninitialize be_app, the be_app_messenger is invalidated automatically
 	be_app = NULL;
 }
@@ -469,6 +472,7 @@ BApplication::_InitData(const char* signature, bool initGUI, status_t* _error)
 	fAppName = signature;
 
 	// no custom cursor yet
+	fCursorData = NULL;
 	fCursorID = -1;
 
 	bool registerApp = true;
@@ -944,8 +948,13 @@ BApplication::IsCursorHidden() const
 void
 BApplication::SetCursor(const void* cursorData)
 {
-	BCursor cursor(cursorData);
-	SetCursor(&cursor, true);
+	BCursor* cursor = new(std::nothrow) BCursor(cursorData);
+	if (cursor == NULL)
+		return;
+
+	delete static_cast<BCursor*>(fCursorData);
+	fCursorData = cursor;
+	SetCursor(cursor, true);
 		// forces the cursor to be sync'ed
 }
 
