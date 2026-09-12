@@ -3322,6 +3322,14 @@ BView::DrawBitmapAsync(const BBitmap* bitmap, BPoint where)
 			cairo_surface_destroy(imageSurface);
 		if (premultipliedBits != NULL)
 			free(premultipliedBits);
+
+		if (updateRect == NULL) {
+			BRect dirtyRect(where.x, where.y, where.x + width - 1, where.y + height - 1);
+			dirtyRect = ConvertToWindow(dirtyRect);
+			pthread_mutex_lock(&fOwner->fBackingSurfaceLock);
+			fOwner->fBackingSurfaceDirtyRegion.Include(dirtyRect);
+			pthread_mutex_unlock(&fOwner->fBackingSurfaceLock);
+		}
 #endif
 		return;
 	}
