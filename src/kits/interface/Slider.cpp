@@ -742,11 +742,11 @@ BSlider::SetValue(int32 value)
 		if (fOrientation == B_HORIZONTAL) {
 			if (IsFocus())
 				invalid.bottom += 2;
-			invalid.InsetBy(-1, 0);
+			invalid.InsetBy(-1, -1);
 		} else {
 			if (IsFocus())
 				invalid.left -= 2;
-			invalid.InsetBy(0, -1);
+			invalid.InsetBy(-1, -1);
 		}
 	}
 
