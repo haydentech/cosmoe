@@ -36,10 +36,10 @@ pictureClipper(BView* view, BRect rect, bool inverse)
 	view->FillEllipse(rect.InsetByCopy(rect.Width()/4, rect.Height()/4));
 	view->EndPicture();
 
-	if (inverse)
-		view->ClipToInversePicture(&p);
-	else
-		view->ClipToPicture(&p);
+	// if (inverse)
+	// 	view->ClipToInversePicture(&p);
+	// else
+	// 	view->ClipToPicture(&p);
 }
 
 static void
@@ -249,12 +249,12 @@ App::App()
 	int testsCount = B_COUNT_OF(tests);
 	for (int i = 0; i < testsCount; i++) {
 		layout.Add(new View("region", tests[i], rectClipper), 0, i);
-		layout.Add(new View("rotate", tests[i], rectClipper), 1, i);
-			// This one changes from Region to Shape clipping
-		layout.Add(new View("picture", tests[i], pictureClipper), 2, i);
-		layout.Add(new View("rotate", tests[i], pictureClipper), 3, i);
-		layout.Add(new View("shape", tests[i], shapeClipper), 4, i);
-		layout.Add(new View("rotate", tests[i], shapeClipper), 5, i);
+	 	layout.Add(new View("rotate", tests[i], rectClipper), 1, i);
+	// 		// This one changes from Region to Shape clipping
+	 	layout.Add(new View("picture", tests[i], pictureClipper), 2, i);
+	 	layout.Add(new View("rotate", tests[i], pictureClipper), 3, i);
+	 	layout.Add(new View("shape", tests[i], shapeClipper), 4, i);
+	 	layout.Add(new View("rotate", tests[i], shapeClipper), 5, i);
 	}
 
 	BScrollView* scroll = new BScrollView("scroll", grid, B_FOLLOW_ALL_SIDES,

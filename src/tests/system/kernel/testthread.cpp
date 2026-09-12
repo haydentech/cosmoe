@@ -355,20 +355,21 @@ test_has_data()
 	// Should be false initially
 	bool has_data_before = has_data(me);
 	
-	// Send ourselves a message
-	send_data(me, 42, NULL, 0);
+	// A zero code and no payload is still a valid message.
+	send_data(me, 0, NULL, 0);
 	
 	// Should be true now
 	bool has_data_after = has_data(me);
 	
 	// Clean up by receiving the data
 	thread_id dummy;
-	receive_data(&dummy, NULL, 0);
+	int32 code = receive_data(&dummy, NULL, 0);
 	
-	if (!has_data_before && has_data_after) {
+	if (!has_data_before && has_data_after && code == 0) {
 		PASS();
 	} else {
-		printf(" (before=%d after=%d)", has_data_before, has_data_after);
+		printf(" (before=%d after=%d code=%" B_PRId32 ")",
+			has_data_before, has_data_after, code);
 		FAIL("has_data incorrect");
 	}
 }
