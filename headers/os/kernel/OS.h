@@ -361,6 +361,7 @@ typedef struct {
 	thread_id		sender;
 	char			buffer[THREAD_BUFFER_SIZE];
 	size_t			buffer_allocation;
+	bool			data_pending;
 } thread_info; // Closing the thread_info struct
 #endif /* COSMOE_NO_THREAD_INFO */
 /* On Apple platforms (when COSMOE_NO_THREAD_INFO is defined) we skip this

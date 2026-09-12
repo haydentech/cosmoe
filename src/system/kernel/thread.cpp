@@ -190,6 +190,7 @@ remove_thread_table_entry(thread_id id)
 	thread_table[id].thread = FREE_SLOT;
 	thread_table[id].team = 0;
 	thread_table[id].buffer_allocation = 0;
+	thread_table[id].data_pending = false;
 	thread_table[id].buffer[0] = '\0';
 	thread_table[id].sender = 0;
 	pthread_mutex_unlock(&thread_sync->mutex);
@@ -245,6 +246,7 @@ spawn_thread(thread_func func, const char *name, int32 priority, void *data)
 			thread_table[i].sender = 0;
 			thread_table[i].buffer[0] = '\0';
 			thread_table[i].buffer_allocation = 0;
+			thread_table[i].data_pending = false;
 
 			pthread_mutex_unlock(&thread_sync->mutex);
 			return i;
@@ -366,7 +368,7 @@ send_data(thread_id thread, int32 code, const void *buffer, size_t buffer_size)
 			//printf("send_data: sending now, potentially blocking\n");
 
 			// Wait until previous message is consumed
-			while (thread_table[i].buffer_allocation || thread_table[i].code) {
+			while (thread_table[i].data_pending) {
 				pthread_cond_wait(&thread_sync->cond, &thread_sync->mutex);
 			}
 
@@ -374,6 +376,7 @@ send_data(thread_id thread, int32 code, const void *buffer, size_t buffer_size)
 
 			thread_table[i].code = code;
 			thread_table[i].sender = this_thread;
+			thread_table[i].data_pending = true;
 
 			if (buffer)
 			{
@@ -407,6 +410,8 @@ void teardown_threads()
 			//if (thread_table[i].buffer)
 			//	free(thread_table[i].buffer);
 			thread_table[i].buffer[0] = '\0';
+			thread_table[i].buffer_allocation = 0;
+			thread_table[i].data_pending = false;
 		}
 	}
 }
@@ -465,6 +470,7 @@ atfork_child_handler(void)
 				thread_table[i].sender = 0;
 				thread_table[i].buffer[0] = '\0';
 				thread_table[i].buffer_allocation = 0;
+				thread_table[i].data_pending = false;
 				pthread_mutex_unlock(&thread_sync->mutex);
 				return;
 			}
@@ -493,7 +499,7 @@ receive_data(thread_id *sender, void *buffer, size_t bufferSize)
 			//printf("receive_data: found data in thread %d, potentially blocking\n", i);
 
 			// Wait until data is available
-			while (thread_table[i].buffer_allocation == 0 && thread_table[i].code == 0) {
+			while (!thread_table[i].data_pending) {
 				pthread_cond_wait(&thread_sync->cond, &thread_sync->mutex);
 			}
 
@@ -511,6 +517,7 @@ receive_data(thread_id *sender, void *buffer, size_t bufferSize)
 			thread_table[i].buffer_allocation = 0;
 			thread_table[i].code = 0;
 			thread_table[i].sender = 0;
+			thread_table[i].data_pending = false;
 			
 			// Signal waiting sender that buffer is now free
 			pthread_cond_broadcast(&thread_sync->cond);
@@ -537,7 +544,7 @@ has_data(thread_id thread)
 	for (thread_id count = 0; count < MAX_THREADS; count++)
 	{
 		if (thread_table[count].thread == thread) {
-			bool result = (thread_table[count].buffer_allocation > 0 || thread_table[count].code != 0);
+			bool result = thread_table[count].data_pending;
 			pthread_mutex_unlock(&thread_sync->mutex);
 			return result;
 		}
@@ -1021,6 +1028,7 @@ _register_main_thread()
 			thread_table[i].sender = 0;
 			thread_table[i].buffer[0] = '\0';
 			thread_table[i].buffer_allocation = 0;
+			thread_table[i].data_pending = false;
 
 			return B_OK;
 		}
