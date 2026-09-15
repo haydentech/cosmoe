@@ -1,5 +1,5 @@
 /*
- * Copyright 2001-2007, Haiku, Inc. All rights reserved.
+ * Copyright 2001-2026, Haiku, Inc. All rights reserved.
  * Distributed under the terms of the MIT License.
  */
 #ifndef	_BITMAP_H
@@ -71,7 +71,7 @@ public:
 			void				UnlockBits();
 
 			void*				Bits() const;
-			int32				BitsLength() const;
+			size_t				BitsLength() const;
 			int32				BytesPerRow() const;
 			color_space			ColorSpace() const;
 			BRect				Bounds() const;
@@ -140,15 +140,15 @@ private:
 
 private:
 			uint8*				fBasePointer;
-			int32				fSize;
-			color_space			fColorSpace;
+			size_t				fSize;
 			BRect				fBounds;
+			color_space			fColorSpace;
 			int32				fBytesPerRow;
-			BWindow*			fWindow;
 			int32				fServerToken;
-			uint8				unused;
 			uint32				fFlags;
+			BWindow*			fWindow;
 			status_t			fInitError;
+			uint32				_reserved[1];
 };
 
 inline float
