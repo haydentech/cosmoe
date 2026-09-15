@@ -1262,7 +1262,7 @@ TBarApp::_CacheTeamIcon(BarTeamInfo* barInfo, int32 size)
 	// fill with a visible placeholder instead of transparent
 	uint8* iconBits = (uint8*)icon->Bits();
 	if (icon->ColorSpace() == B_RGBA32) {
-		int32 i = 0;
+		size_t i = 0;
 		while (i < icon->BitsLength()) {
 			iconBits[i++] = 0x80;
 			iconBits[i++] = 0x80;
@@ -1271,7 +1271,7 @@ TBarApp::_CacheTeamIcon(BarTeamInfo* barInfo, int32 size)
 		}
 	} else {
 		// Assume B_CMAP8; use an opaque fallback entry instead of transparent.
-		for (int32 i = 0; i < icon->BitsLength(); i++)
+		for (size_t i = 0; i < icon->BitsLength(); i++)
 			iconBits[i] = 0;
 	}
 
