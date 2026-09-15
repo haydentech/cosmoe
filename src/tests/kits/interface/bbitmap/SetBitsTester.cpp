@@ -32,7 +32,7 @@ struct set_bits_test_data {
 	int32 		width;
 	int32 		height;
 	int32		offset;
-	int32		length;
+	size_t		length;
 	int32		pixel_count;
 	uint8		data[256];
 };

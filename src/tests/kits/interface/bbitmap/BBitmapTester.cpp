@@ -209,7 +209,7 @@ printf("space: %x: bpr: %d (%d)\n", testCase.space, bitmap.BytesPerRow(),
 bpr);
 }
 		CHK(bitmap.BytesPerRow() == bpr);
-		CHK(bitmap.BitsLength() == bpr * height);
+		CHK(bitmap.BitsLength() == (size_t)(bpr * height));
 	}
 }
 
