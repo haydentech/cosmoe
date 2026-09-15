@@ -354,7 +354,7 @@ TLauncherView::_FetchIcon(const entry_ref& ref) const
 	}
 
 	uint8* iconBits = (uint8*)icon->Bits();
-	for (int32 i = 0; i < icon->BitsLength(); i += 4) {
+	for (size_t i = 0; i < icon->BitsLength(); i += 4) {
 		iconBits[i + 0] = 0x80;
 		iconBits[i + 1] = 0x80;
 		iconBits[i + 2] = 0x80;
