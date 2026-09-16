@@ -183,6 +183,7 @@ SYSTEM_INCLUDE_PATHS += \
 	$(COSMOE_INCLUDE_ROOT)/private/shared \
 	$(COSMOE_INCLUDE_ROOT)/private/support \
 	$(COSMOE_INCLUDE_ROOT)/private/interface \
+	$(COSMOE_INCLUDE_ROOT)/posix \
 	$(COSMOE_INCLUDE_ROOT)/libs/agg/
 
 # Set up the local & system include paths and C++ stdlibs.

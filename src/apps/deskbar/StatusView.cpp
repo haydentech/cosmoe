@@ -678,8 +678,8 @@ TReplicantTray::LoadAddOn(BEntry* entry, int32* id, bool addToSettings)
 
 	// load the add-on
 	image_id image = load_add_on(path.Path());
-	if (image == NULL)
-		return B_ERROR;
+	if (image < B_OK)
+		return image;
 
 	// get the view loading function symbol
 	//    we first look for a symbol that takes an image_id

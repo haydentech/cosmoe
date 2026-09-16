@@ -638,6 +638,8 @@ instantiate_object(BMessage* archive, image_id* _id)
 {
 	status_t statusBuffer;
 	status_t* status = &statusBuffer;
+	if (_id != NULL)
+		status = _id;
 
 	// Check our params
 	if (archive == NULL) {

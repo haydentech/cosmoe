@@ -6,12 +6,13 @@
  *		DarkWyrm <bpmagic@columbus.rr.com>
  *		Caz <turok2@currantbun.com>
  *		Axel Dörfler, axeld@pinc-software.de
- *		Michael Lotz <mmlr@mlr.ch>
+ *		Michael Lotz <mmlr@mlotz.ch>
  *		Wim van der Meer <WPJvanderMeer@gmail.com>
+ *		Joseph Groover <looncraz@looncraz.net>
  */
 
 
-/*! Global functions and variables for the Interface Kit */
+/*!	Global functions and variables for the Interface Kit */
 
 
 #include <InterfaceDefs.h>
@@ -861,7 +862,7 @@ static const char* kColorNames[kColorWhichCount] = {
 	NULL
 };
 
-static image_id sControlLookAddon = NULL;
+static image_id sControlLookAddon = -1;
 
 
 namespace BPrivate {
@@ -1730,14 +1731,14 @@ _init_interface_kit_()
 		BControlLook* (*instantiate)(image_id);
 
 		sControlLookAddon = load_add_on(path.String());
-		if (sControlLookAddon != NULL
+		if (sControlLookAddon >= 0
 			&& get_image_symbol(sControlLookAddon,
 				"instantiate_control_look",
 				B_SYMBOL_TYPE_TEXT, (void **)&instantiate) == B_OK) {
 			be_control_look = instantiate(sControlLookAddon);
 			if (be_control_look == NULL) {
 				unload_add_on(sControlLookAddon);
-				sControlLookAddon = NULL;
+				sControlLookAddon = B_BAD_IMAGE_ID;
 				fprintf(stderr, "Failed to instantiate ControlLook add-on from %s\n", path.String());
 			}
 			printf("ControlLook add-on loaded from %s\n", path.String());
@@ -1803,9 +1804,9 @@ _fini_interface_kit_()
 	// Note: if we ever want to support live switching, we cannot just unload
 	// the old one since some thread might still be in a method of the object.
 	// maybe locking/unlocking all loopers around would ensure proper exit.
-	if (sControlLookAddon != 0)
+	if (sControlLookAddon >= 0)
 		unload_add_on(sControlLookAddon);
-	sControlLookAddon = NULL;
+	sControlLookAddon = -1;
 
 	// Shutdown Pango/Cairo font subsystem to prevent GTK hash table assertion
 	// This must be done to properly clean up the default font map singleton

@@ -70,6 +70,8 @@ char B_TRANSLATOR_EXT_SOUND_CHANNEL[]		= "nois/channel";
 char B_TRANSLATOR_EXT_SOUND_MONO[]			= "nois/mono";
 char B_TRANSLATOR_EXT_SOUND_MARKER[]		= "nois/marker";
 char B_TRANSLATOR_EXT_SOUND_LOOP[]			= "nois/loop";
+char B_TRANSLATOR_EXT_DOCUMENT_COUNT[]		= "/documentCount";
+char B_TRANSLATOR_EXT_DOCUMENT_INDEX[]		= "/documentIndex";
 
 BTranslatorRoster* BTranslatorRoster::sDefaultRoster = NULL;
 
@@ -572,8 +574,8 @@ BTranslatorRoster::Private::CreateTranslators(const entry_ref& ref,
 
 	BPath path(&ref);
 	image_id image = load_add_on(path.Path());
-	if (image == NULL)
-		return B_ERROR;
+	if (image < B_OK)
+		return image;
 
 	// Function pointer used to create post R4.5 style translators
 	BTranslator *(*makeNthTranslator)(int32 n, image_id you, uint32 flags, ...);
@@ -1324,8 +1326,8 @@ BTranslatorRoster::IsTranslator(entry_ref* ref)
 
 	BPath path(ref);
 	image_id image = load_add_on(path.Path());
-	if (image == NULL)
-		return B_ERROR;
+	if (image < B_OK)
+		return false;
 
 	// Function pointer used to create post R4.5 style translators
 	BTranslator* (*makeNthTranslator)(int32 n, image_id you, uint32 flags, ...);

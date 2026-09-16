@@ -127,9 +127,6 @@
 
 Cosmoe is designed to be as compatible as possible with Haiku/Be code, but there some minor things to be aware of:
 
-- `image_id` is a pointer type on Cosmoe, not an integer like on Haiku.
-  - Accordingly, a bad `image_id` on Haiku is a negative number (typically -1), while a bad `image_id` on Cosmoe is NULL. 
-
 - `BIconUtils::GetAppIcon` doesn't exist on Haiku.
 
 - `node_ref` cannot be used to find/create filesystem objects on Cosmoe.

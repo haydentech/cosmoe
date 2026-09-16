@@ -34,7 +34,7 @@ public:
 								create_editor *allocator);
 					~EditorInfo(void);
 	
-	status_t		ID(void) const { return fID == NULL ? B_ERROR : B_OK; }
+	status_t		ID(void) const { return fID; }
 	const char *	Name(void) const { return fName.String(); }
 	Editor *		Instantiate(void);
 
@@ -124,7 +124,7 @@ ResourceRoster::LoadEditors(void)
 		BPath path(&ref);
 		
 		image_id addon = load_add_on(path.Path());
-		if (addon == NULL)
+		if (addon < 0)
 			continue;
 		
 		char *temp;
