@@ -31,6 +31,10 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <limits.h>
+#include <mutex>
+#include <string>
+#include <unordered_map>
 
 // Platform-specific system headers
 #ifdef _WIN32
@@ -56,6 +60,9 @@
 	#define IMG_RTLD_NOLOAD 0
 #else
 	#include <dlfcn.h>
+	#ifdef __linux__
+		#include <link.h>
+	#endif
 	#define IMG_HANDLE void*
 	#define IMG_OPEN(path, flags) dlopen(path, flags)
 	#define IMG_CLOSE(handle) dlclose(handle)
@@ -74,6 +81,91 @@
 
 
 extern thread_id _main_thread_for_team(team_id);
+
+
+namespace {
+
+struct ImageRecord {
+	IMG_HANDLE	handle;
+	std::string	path;
+	void*		baseAddress;
+	bool		ownsHandle;
+	bool		isMainExecutable;
+};
+
+struct ImageRegistry {
+	std::mutex						lock;
+	std::unordered_map<image_id, ImageRecord>	images;
+	image_id						nextImageID = 1;
+};
+
+
+ImageRegistry&
+image_registry()
+{
+	// Image APIs can be called from another translation unit's static
+	// initializer. A function-local static avoids initialization-order issues.
+	static ImageRegistry registry;
+	return registry;
+}
+
+
+image_id
+register_image(IMG_HANDLE handle, const char* path, void* baseAddress,
+	bool ownsHandle, bool isMainExecutable)
+{
+	ImageRegistry& registry = image_registry();
+	std::lock_guard<std::mutex> locker(registry.lock);
+
+	// Do not reuse IDs: an ID retained after unload must never refer to a
+	// subsequently loaded image.
+	if (registry.nextImageID <= 0 || registry.nextImageID == INT32_MAX)
+		return B_ERROR;
+
+	const image_id id = registry.nextImageID++;
+	registry.images.emplace(id, ImageRecord { handle, path != NULL ? path : "",
+		baseAddress, ownsHandle, isMainExecutable });
+	return id;
+}
+
+
+image_id
+register_discovered_image(IMG_HANDLE handle, const char* path, void* baseAddress,
+	bool isMainExecutable)
+{
+	ImageRegistry& registry = image_registry();
+	std::lock_guard<std::mutex> locker(registry.lock);
+	for (const auto& entry : registry.images) {
+		const ImageRecord& image = entry.second;
+		if (image.isMainExecutable == isMainExecutable
+			&& image.baseAddress == baseAddress && image.path == path) {
+			return entry.first;
+		}
+	}
+
+	if (registry.nextImageID <= 0 || registry.nextImageID == INT32_MAX)
+		return B_ERROR;
+
+	const image_id id = registry.nextImageID++;
+	registry.images.emplace(id, ImageRecord { handle, path != NULL ? path : "",
+		baseAddress, false, isMainExecutable });
+	return id;
+}
+
+
+bool
+get_image_record(image_id id, ImageRecord& record)
+{
+	ImageRegistry& registry = image_registry();
+	std::lock_guard<std::mutex> locker(registry.lock);
+	auto found = registry.images.find(id);
+	if (found == registry.images.end())
+		return false;
+	record = found->second;
+	return true;
+}
+
+} // namespace
 
 thread_id load_image(int32 argc, const char **argv, const char **envp)
 {
@@ -135,38 +227,77 @@ thread_id load_image(int32 argc, const char **argv, const char **envp)
 
 image_id load_add_on(const char* path)
 {
+	if (path == NULL)
+		return B_BAD_VALUE;
+
 	IMG_HANDLE hdll = IMG_OPEN(path, IMG_RTLD_LAZY);
 
 	if (!hdll)
 		fprintf(stderr, "load_add_on(): Failed to load '%s': %s\n", path, IMG_ERROR());
 
-	return (image_id)hdll;
+	if (!hdll)
+		return B_BAD_IMAGE_ID;
+
+	image_id id = register_image(hdll, path, NULL, true, false);
+	if (id < 0) {
+		IMG_CLOSE(hdll);
+		return id;
+	}
+	return id;
 }
 
 
 status_t unload_add_on(image_id imageID)
 {
-	IMG_HANDLE hdll = (IMG_HANDLE)imageID;
-	return IMG_CLOSE(hdll) ? B_ERROR : B_OK;
+	ImageRegistry& registry = image_registry();
+	std::lock_guard<std::mutex> locker(registry.lock);
+	auto found = registry.images.find(imageID);
+	if (found == registry.images.end() || !found->second.ownsHandle)
+		return B_BAD_IMAGE_ID;
+
+	if (IMG_CLOSE(found->second.handle) != 0)
+		return B_ERROR;
+
+	registry.images.erase(found);
+	return B_OK;
 }
 
 
 status_t get_image_symbol(image_id imid, const char* name, int32 sclass, void** pptr)
 {
-	IMG_HANDLE hdll;
+	if (pptr == NULL || name == NULL)
+		return B_BAD_VALUE;
+
 	const char* err = NULL;
-	const bool isMainExecutableMarker = ((uintptr_t)imid & 0x1) != 0;
 	const bool verboseLookupErrors
 		= getenv("COSMOE_DEBUG_SYMBOL_LOOKUP") != NULL;
+	(void)sclass;
 
-	// Check if this is a special marker for the main executable (low bit set)
-	if (isMainExecutableMarker) {
-		// Main executable - use default handle to search global scope
+	ImageRegistry& registry = image_registry();
+	std::lock_guard<std::mutex> locker(registry.lock);
+	auto found = registry.images.find(imid);
+	if (found == registry.images.end())
+		return B_BAD_IMAGE_ID;
+
+	const ImageRecord& image = found->second;
+	IMG_HANDLE hdll = image.handle;
+	bool closeAfterLookup = false;
+
+#ifndef _WIN32
+	if (image.isMainExecutable) {
 		hdll = IMG_DEFAULT;
-	} else {
-		hdll = (IMG_HANDLE)imid;
+	} else if (!image.ownsHandle) {
+		hdll = IMG_OPEN(image.path.c_str(), IMG_RTLD_LAZY | IMG_RTLD_NOLOAD);
+		if (hdll == NULL)
+			return B_BAD_IMAGE_ID;
+		closeAfterLookup = true;
 	}
+#endif
 
+	// POSIX specifies that dlerror() must be cleared before dlsym().
+#ifndef _WIN32
+	IMG_ERROR();
+#endif
 	*pptr = (void*)IMG_SYMBOL(hdll, name);
 #ifdef _WIN32
 	if (*pptr == NULL) {
@@ -178,7 +309,7 @@ status_t get_image_symbol(image_id imid, const char* name, int32 sclass, void** 
 		return B_BAD_IMAGE_ID;
 	}
 
-	if (*pptr != NULL && !isMainExecutableMarker) {
+	if (*pptr != NULL && !image.isMainExecutable) {
 		HMODULE symbolModule = NULL;
 		if (!GetModuleHandleExA(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS
 				| GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
@@ -196,6 +327,8 @@ status_t get_image_symbol(image_id imid, const char* name, int32 sclass, void** 
 #else
 	err = IMG_ERROR();
 #endif
+	if (closeAfterLookup)
+		IMG_CLOSE(hdll);
 	if (err)
 	{
 		if (verboseLookupErrors) {
@@ -215,11 +348,12 @@ _get_image_info(image_id image, image_info *info, size_t size)
 	if (!info || size != sizeof(image_info))
 		return B_BAD_VALUE;
 
-	if (!image)
+	ImageRecord record;
+	if (!get_image_record(image, record))
 		return B_BAD_IMAGE_ID;
 
 #ifdef _WIN32
-	HMODULE hdll = (HMODULE)image;
+	HMODULE hdll = (HMODULE)record.handle;
 	if (!hdll)
 		return B_BAD_IMAGE_ID;
 
@@ -227,7 +361,7 @@ _get_image_info(image_id image, image_info *info, size_t size)
 	if (!GetModuleInformation(GetCurrentProcess(), hdll, &modInfo, sizeof(modInfo))) {
 		if (!GetModuleHandleExA(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS
 				| GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
-			(LPCSTR)image, &hdll)) {
+			(LPCSTR)record.baseAddress, &hdll)) {
 			return B_BAD_IMAGE_ID;
 		}
 
@@ -289,8 +423,24 @@ _get_image_info(image_id image, image_info *info, size_t size)
 	}
 
 #else
+	void* address = record.baseAddress;
+	if (address == NULL && record.isMainExecutable)
+		address = (void*)&_get_image_info;
+
+#ifdef __linux__
+	if (address == NULL && record.handle != NULL) {
+		struct link_map* linkMap = NULL;
+		if (dlinfo(record.handle, RTLD_DI_LINKMAP, &linkMap) == 0
+			&& linkMap != NULL) {
+			address = (void*)linkMap->l_addr;
+		}
+	}
+#endif
+	if (address == NULL)
+		return B_BAD_IMAGE_ID;
+
 	Dl_info dl_info;
-	if (dladdr(image, &dl_info) == 0)
+	if (dladdr(address, &dl_info) == 0)
 		return B_BAD_IMAGE_ID;
 
 	void* text_start = dl_info.dli_fbase;
@@ -501,35 +651,13 @@ _get_next_image_info(team_id team, int32 *cookie, image_info *info, size_t size)
 					is_main_executable = (strcmp(path, exe_path) == 0);
 				}
 				
-				// Try to get a library handle for this library path
-				void* handle = NULL;
-				
-				if (is_main_executable) {
-					// For the main executable, we can't use normal library loading.
-					// We'll need to use the executable's own symbols via a workaround.
-					// Use NULL which will be handled specially in get_image_symbol
-					handle = NULL;  // Will be handled specially in get_image_symbol
-				} else {
-					// First try with RTLD_NOLOAD to get existing handle
-					handle = (void*)IMG_OPEN(path, IMG_RTLD_LAZY | IMG_RTLD_NOLOAD);
-					
-					if (!handle) {
-						// RTLD_NOLOAD failed, try using dladdr to find the right path
-						Dl_info dl_info;
-						if (dladdr(text_start, &dl_info) != 0 && dl_info.dli_fname) {
-							handle = (void*)IMG_OPEN(dl_info.dli_fname, IMG_RTLD_LAZY | IMG_RTLD_NOLOAD);
-						}
-					}
-				}
-				
-				// Fill in the image_info structure
-				// For main executable, use a special marker (text_start with low bit set)
-				// so get_image_symbol knows to use default handle
-				if (is_main_executable) {
-					info->id = (image_id)((uintptr_t)text_start | 0x1);
-				} else {
-					info->id = handle ? (image_id)handle : (image_id)text_start;
-				}
+				// The table owns no reference for enumerated images. Acquiring an
+				// RTLD_NOLOAD handle here would add a loader reference that callers
+				// of get_next_image_info() have no obligation to release.
+				info->id = register_discovered_image(NULL, path, text_start,
+					is_main_executable);
+				if (info->id < 0)
+					return info->id;
 				
 				info->type = is_main_executable ? B_APP_IMAGE : B_LIBRARY_IMAGE;
 				
@@ -622,7 +750,12 @@ _get_next_image_info(team_id team, int32 *cookie, image_info *info, size_t size)
 	void* data_end = text_end;
 	
 	// Fill in the image_info structure
-	info->id = (image_id)hModule;
+	info->id = register_discovered_image(hModule, module_path, text_start,
+		is_main_executable);
+	if (info->id < 0) {
+		CloseHandle(hProcess);
+		return info->id;
+	}
 	info->type = is_main_executable ? B_APP_IMAGE : B_LIBRARY_IMAGE;
 	info->sequence = *cookie;
 	info->init_order = 0;
@@ -730,22 +863,11 @@ _get_next_image_info(team_id team, int32 *cookie, image_info *info, size_t size)
 		}
 	}
 	
-	// Try to get a library handle for this library
-	void* handle = NULL;
-	if (is_main_executable) {
-		// For main executable, use special marker (base address with low bit set)
-		handle = (void*)((uintptr_t)base_address | 0x1);
-	} else {
-		// Try to get handle without loading if not already loaded
-		handle = (void*)IMG_OPEN(image_name, IMG_RTLD_LAZY | IMG_RTLD_NOLOAD);
-		if (!handle) {
-			// Fallback to base address if we can't get handle
-			handle = base_address;
-		}
-	}
-	
 	// Fill in the image_info structure
-	info->id = (image_id)handle;
+	info->id = register_discovered_image(NULL, image_name, base_address,
+		is_main_executable);
+	if (info->id < 0)
+		return info->id;
 	info->type = is_main_executable ? B_APP_IMAGE : B_LIBRARY_IMAGE;
 	info->sequence = *cookie;
 	info->init_order = 0;

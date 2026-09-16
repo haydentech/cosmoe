@@ -263,7 +263,7 @@ BImageResources::find_image(void* memAddr) const
 		}
 	}
 
-	return NULL;
+	return -1;
 }
 
 

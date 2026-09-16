@@ -156,7 +156,7 @@ BTestShell::LoadSuitesFrom(BDirectory *libDir) {
 				continue;
 			}
 			addonImage = load_add_on(addonPath.Path());
-			addonStatus = (addonImage != NULL ? B_OK : B_ERROR);
+			addonStatus = (addonImage >= 0 ? B_OK : B_ERROR);
 		}
 		if (addonStatus == B_OK) {
 			err = get_image_symbol(addonImage, "getTestSuite",

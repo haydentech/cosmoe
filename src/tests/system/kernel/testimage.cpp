@@ -1,5 +1,5 @@
 //------------------------------------------------------------------------------
-//	Copyright (c) 2004-2025, Bill Hayden
+//	Copyright (c) 2004-2026, Bill Hayden
 //
 //	Permission is hereby granted, free of charge, to any person obtaining a
 //	copy of this software and associated documentation files (the "Software"),
@@ -85,18 +85,18 @@ void test_get_image_info()
 	const char* sym_name = "cos";
 #endif
 	
-	void* libm = dlopen(lib_name, RTLD_LAZY);
-	if (!libm) {
-		TEST_FAIL("FAIL: Could not load %s: %s\n", lib_name, dlerror());
+	image_id image = load_add_on(lib_name);
+	if (image < 0) {
+		TEST_FAIL("FAIL: Could not load %s\n", lib_name);
 		return;
 	}
 	
-	// Test 1: Get info using a function address (proper way)
-	printf("\nTest 1: _get_image_info with function address\n");
-	void* cos_addr = dlsym(libm, sym_name);
-	if (cos_addr) {
+	// Test 1: Get info using the opaque image ID.
+	printf("\nTest 1: _get_image_info with image ID\n");
+	void* symbol = NULL;
+	if (get_image_symbol(image, sym_name, B_SYMBOL_TYPE_TEXT, &symbol) == B_OK) {
 		image_info info;
-		status_t result = _get_image_info((image_id)cos_addr, &info, sizeof(info));
+		status_t result = _get_image_info(image, &info, sizeof(info));
 		
 		if (result == B_OK) {
 			printf("  PASS: Got image info for %s\n", lib_name);
@@ -114,39 +114,38 @@ void test_get_image_info()
 			TEST_FAIL("  FAIL: _get_image_info returned %d\n", result);
 		}
 	} else {
-		TEST_FAIL("  FAIL: Could not resolve %s in %s: %s\n", sym_name, lib_name,
-			dlerror());
+		TEST_FAIL("  FAIL: Could not resolve %s in %s\n", sym_name, lib_name);
 	}
 	
 	// Test 2: Error handling - NULL info pointer
 	printf("\nTest 2: Error handling - NULL info pointer\n");
-	status_t result = _get_image_info((image_id)cos_addr, NULL, sizeof(image_info));
+	status_t result = _get_image_info(image, NULL, sizeof(image_info));
 	if (result == B_BAD_VALUE) {
 		printf("  PASS: NULL info returns B_BAD_VALUE\n");
 	} else {
 		TEST_FAIL("  FAIL: Expected B_BAD_VALUE, got %d\n", result);
 	}
 	
-	// Test 3: Error handling - NULL image_id
-	printf("\nTest 3: Error handling - NULL image_id\n");
+	// Test 3: Error handling - invalid image_id
+	printf("\nTest 3: Error handling - invalid image_id\n");
 	image_info info;
-	result = _get_image_info(NULL, &info, sizeof(info));
+	result = _get_image_info(B_BAD_IMAGE_ID, &info, sizeof(info));
 	if (result == B_BAD_IMAGE_ID) {
-		printf("  PASS: NULL image_id returns B_BAD_IMAGE_ID\n");
+		printf("  PASS: Invalid image_id returns B_BAD_IMAGE_ID\n");
 	} else {
 		TEST_FAIL("  FAIL: Expected B_BAD_IMAGE_ID, got %d\n", result);
 	}
 	
 	// Test 4: Error handling - wrong size
 	printf("\nTest 4: Error handling - wrong size\n");
-	result = _get_image_info((image_id)cos_addr, &info, sizeof(info) - 1);
+	result = _get_image_info(image, &info, sizeof(info) - 1);
 	if (result == B_BAD_VALUE) {
 		printf("  PASS: Wrong size returns B_BAD_VALUE\n");
 	} else {
 		TEST_FAIL("  FAIL: Expected B_BAD_VALUE, got %d\n", result);
 	}
 	
-	dlclose(libm);
+	unload_add_on(image);
 }
 
 void test_get_next_image_info()
@@ -157,13 +156,13 @@ void test_get_next_image_info()
 	printf("\nLoading test libraries...\n");
 #ifdef _WIN32
 	// On Windows, load some DLLs that should be available
-	void* libm = dlopen("msvcrt.dll", RTLD_LAZY);
-	void* libpthread = dlopen("libwinpthread-1.dll", RTLD_LAZY);
-	void* libdl = dlopen("kernel32.dll", RTLD_LAZY);
+	image_id libm = load_add_on("msvcrt.dll");
+	image_id libpthread = load_add_on("libwinpthread-1.dll");
+	image_id libdl = load_add_on("kernel32.dll");
 #else
-	void* libm = dlopen("libm.so.6", RTLD_LAZY);
-	void* libpthread = dlopen("libpthread.so.0", RTLD_LAZY);
-	void* libdl = dlopen("libdl.so.2", RTLD_LAZY);
+	image_id libm = load_add_on("libm.so.6");
+	image_id libpthread = load_add_on("libpthread.so.0");
+	image_id libdl = load_add_on("libdl.so.2");
 #endif
 	
 	printf("\nTest 1: Enumerate all loaded images\n");
@@ -275,9 +274,9 @@ void test_get_next_image_info()
 	}
 	
 	// Cleanup
-	if (libm) dlclose(libm);
-	if (libpthread) dlclose(libpthread);
-	if (libdl) dlclose(libdl);
+	if (libm >= 0) unload_add_on(libm);
+	if (libpthread >= 0) unload_add_on(libpthread);
+	if (libdl >= 0) unload_add_on(libdl);
 }
 
 int main()

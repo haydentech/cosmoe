@@ -310,7 +310,7 @@ DiskSystemAddOnManager::_LoadAddOns(StringSet& alreadyLoaded,
 
 		// load the add-on
 		image_id image = load_add_on(entryPath.Path());
-		if (image == NULL) {
+		if (image < 0) {
 			TRACE("  skipping \"%s\" -- failed to load add-on\n", ref.name);
 			continue;
 		}

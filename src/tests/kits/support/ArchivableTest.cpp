@@ -345,7 +345,7 @@ public:
 
 class InstantiateObjectTest : public CppUnit::TestFixture {
 public:
-	InstantiateObjectTest() : fAddonId(NULL) {}
+	InstantiateObjectTest() : fAddonId(B_ERROR) {}
 
 	CPPUNIT_TEST_SUITE(InstantiateObjectTest);
 	CPPUNIT_TEST(InstantiateObject_NullArchive_ReturnsNullAndBadValue);
@@ -366,10 +366,10 @@ public:
 	void InstantiateObject_NullArchive_ReturnsNullAndBadValue()
 	{
 		errno = B_OK;
-		image_id id;
+		image_id id = B_OK;
 		TIOTest* test = (TIOTest*)instantiate_object(NULL, &id);
 		CPPUNIT_ASSERT(test == NULL);
-		CPPUNIT_ASSERT(id == NULL);
+		CPPUNIT_ASSERT_EQUAL(B_BAD_VALUE, id);
 		CPPUNIT_ASSERT_EQUAL(B_BAD_VALUE, errno);
 	}
 
@@ -377,10 +377,10 @@ public:
 	{
 		errno = B_OK;
 		BMessage archive;
-		image_id id;
+		image_id id = B_OK;
 		TIOTest* test = (TIOTest*)instantiate_object(&archive, &id);
 		CPPUNIT_ASSERT(test == NULL);
-		CPPUNIT_ASSERT(id == NULL);
+		CPPUNIT_ASSERT_EQUAL(B_BAD_VALUE, id);
 		CPPUNIT_ASSERT_EQUAL(B_OK, errno);
 	}
 
@@ -389,10 +389,10 @@ public:
 		errno = B_OK;
 		BMessage archive;
 		archive.AddString("class", gInvalidClassName);
-		image_id id;
+		image_id id = B_OK;
 		TIOTest* test = (TIOTest*)instantiate_object(&archive, &id);
 		CPPUNIT_ASSERT(test == NULL);
-		CPPUNIT_ASSERT(id == NULL);
+		CPPUNIT_ASSERT_EQUAL(B_BAD_VALUE, id);
 		CPPUNIT_ASSERT_EQUAL(B_OK, errno);
 	}
 
@@ -402,10 +402,10 @@ public:
 		BMessage archive;
 		archive.AddString("class", gInvalidClassName);
 		archive.AddString("add_on", gInvalidSig);
-		image_id id;
+		image_id id = B_OK;
 		TIOTest* test = (TIOTest*)instantiate_object(&archive, &id);
 		CPPUNIT_ASSERT(test == NULL);
-		CPPUNIT_ASSERT(id == NULL);
+		CPPUNIT_ASSERT_EQUAL(B_BAD_VALUE, id);
 		CPPUNIT_ASSERT_EQUAL(B_LAUNCH_FAILED_APP_NOT_FOUND, errno);
 	}
 
@@ -415,10 +415,10 @@ public:
 		BMessage archive;
 		archive.AddString("class", gInvalidClassName);
 		archive.AddString("add_on", gValidSig);
-		image_id id;
+		image_id id = B_OK;
 		TIOTest* test = (TIOTest*)instantiate_object(&archive, &id);
 		CPPUNIT_ASSERT(test == NULL);
-		CPPUNIT_ASSERT(id != NULL);
+		CPPUNIT_ASSERT(id > 0);
 		unload_add_on(id);
 		CPPUNIT_ASSERT_EQUAL(B_BAD_VALUE, errno);
 	}
@@ -428,10 +428,10 @@ public:
 		errno = B_OK;
 		BMessage archive;
 		archive.AddString("class", gLocalClassName);
-		image_id id;
+		image_id id = B_OK;
 		TIOTest* test = (TIOTest*)instantiate_object(&archive, &id);
 		CPPUNIT_ASSERT(test != NULL);
-		CPPUNIT_ASSERT(id == NULL);
+		CPPUNIT_ASSERT_EQUAL(B_BAD_VALUE, id);
 		CPPUNIT_ASSERT_EQUAL(B_OK, errno);
 	}
 
@@ -442,10 +442,10 @@ public:
 
 		BMessage archive;
 		archive.AddString("class", gRemoteClassName);
-		image_id id;
+		image_id id = B_OK;
 		TRemoteTestObject* test = (TRemoteTestObject*)instantiate_object(&archive, &id);
 		CPPUNIT_ASSERT(test != NULL);
-		CPPUNIT_ASSERT(id == NULL);
+		CPPUNIT_ASSERT_EQUAL(B_BAD_VALUE, id);
 		CPPUNIT_ASSERT_EQUAL(B_OK, errno);
 
 		UnloadAddon();
@@ -456,10 +456,10 @@ public:
 		errno = B_OK;
 		BMessage archive;
 		CPPUNIT_ASSERT(archive.AddString("class", gRemoteClassName) == B_OK);
-		image_id id;
+		image_id id = B_OK;
 		TRemoteTestObject* test = (TRemoteTestObject*)instantiate_object(&archive, &id);
 		CPPUNIT_ASSERT(test == NULL);
-		CPPUNIT_ASSERT(id == NULL);
+		CPPUNIT_ASSERT_EQUAL(B_BAD_VALUE, id);
 		CPPUNIT_ASSERT_EQUAL(B_BAD_VALUE, errno);
 	}
 
@@ -469,10 +469,10 @@ public:
 		BMessage archive;
 		CPPUNIT_ASSERT(archive.AddString("class", gLocalClassName) == B_OK);
 		CPPUNIT_ASSERT(archive.AddString("add_on", gInvalidSig) == B_OK);
-		image_id id;
+		image_id id = B_OK;
 		TIOTest* test = (TIOTest*)instantiate_object(&archive, &id);
 		CPPUNIT_ASSERT(test == NULL);
-		CPPUNIT_ASSERT(id == NULL);
+		CPPUNIT_ASSERT_EQUAL(B_BAD_VALUE, id);
 		CPPUNIT_ASSERT_EQUAL(B_LAUNCH_FAILED_APP_NOT_FOUND, errno);
 	}
 
@@ -484,10 +484,10 @@ public:
 		BMessage archive;
 		archive.AddString("class", gRemoteClassName);
 		archive.AddString("add_on", gInvalidSig);
-		image_id id;
+		image_id id = B_OK;
 		TIOTest* test = (TIOTest*)instantiate_object(&archive, &id);
 		CPPUNIT_ASSERT(test == NULL);
-		CPPUNIT_ASSERT(id == NULL);
+		CPPUNIT_ASSERT_EQUAL(B_BAD_VALUE, id);
 		CPPUNIT_ASSERT_EQUAL(B_LAUNCH_FAILED_APP_NOT_FOUND, errno);
 
 		UnloadAddon();
@@ -499,10 +499,10 @@ public:
 		BMessage archive;
 		archive.AddString("class", gRemoteClassName);
 		archive.AddString("add_on", gInvalidSig);
-		image_id id;
+		image_id id = B_OK;
 		TIOTest* test = (TIOTest*)instantiate_object(&archive, &id);
 		CPPUNIT_ASSERT(test == NULL);
-		CPPUNIT_ASSERT(id == NULL);
+		CPPUNIT_ASSERT_EQUAL(B_BAD_VALUE, id);
 		CPPUNIT_ASSERT_EQUAL(B_LAUNCH_FAILED_APP_NOT_FOUND, errno);
 	}
 
@@ -512,10 +512,10 @@ public:
 		BMessage archive;
 		archive.AddString("class", gLocalClassName);
 		archive.AddString("add_on", GetLocalSignature().c_str());
-		image_id id;
+		image_id id = B_OK;
 		TIOTest* test = (TIOTest*)instantiate_object(&archive, &id);
 		CPPUNIT_ASSERT(test != NULL);
-		CPPUNIT_ASSERT(id == NULL);
+		CPPUNIT_ASSERT_EQUAL(B_BAD_VALUE, id);
 		CPPUNIT_ASSERT_EQUAL(B_OK, errno);
 	}
 
@@ -527,10 +527,10 @@ public:
 		BMessage archive;
 		archive.AddString("class", gRemoteClassName);
 		archive.AddString("add_on", gRemoteSig);
-		image_id id;
+		image_id id = B_OK;
 		TRemoteTestObject* test = (TRemoteTestObject*)instantiate_object(&archive, &id);
 		CPPUNIT_ASSERT(test != NULL);
-		CPPUNIT_ASSERT(id == NULL);
+		CPPUNIT_ASSERT_EQUAL(B_BAD_VALUE, id);
 		CPPUNIT_ASSERT_EQUAL(B_OK, errno);
 
 		UnloadAddon();
@@ -542,10 +542,10 @@ public:
 		BMessage archive;
 		archive.AddString("class", gRemoteClassName);
 		archive.AddString("add_on", gRemoteSig);
-		image_id id;
+		image_id id = B_OK;
 		TRemoteTestObject* test = (TRemoteTestObject*)instantiate_object(&archive, &id);
 		CPPUNIT_ASSERT(test != NULL);
-		CPPUNIT_ASSERT(id != NULL);
+		CPPUNIT_ASSERT(id > 0);
 		unload_add_on(id);
 		CPPUNIT_ASSERT_EQUAL(B_OK, errno);
 	}
@@ -553,22 +553,22 @@ public:
 private:
 	void LoadAddon()
 	{
-		if (fAddonId != NULL)
+		if (fAddonId > 0)
 			return;
 
 		std::string libPath("lib/");
 		libPath += gRemoteLib;
 		fAddonId = load_add_on(libPath.c_str());
 
-		if (fAddonId == NULL)
-			FORMAT_AND_THROW(" failed to load addon: ", 0);
+		if (fAddonId <= 0)
+			FORMAT_AND_THROW(" failed to load addon: ", fAddonId);
 	}
 
 	void UnloadAddon()
 	{
-		if (fAddonId != NULL) {
+		if (fAddonId > 0) {
 			status_t err = unload_add_on(fAddonId);
-			fAddonId = NULL;
+			fAddonId = B_ERROR;
 			if (err)
 				FORMAT_AND_THROW(" failed to unload addon: ", err);
 		}
