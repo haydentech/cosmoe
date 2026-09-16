@@ -1961,6 +1961,11 @@ BView::ScrollTo(BPoint where)
 	// we modify our bounds rectangle by deltaX/deltaY coord units hor/ver.
 	fBounds.OffsetTo(where.x, where.y);
 
+	// Descendants inherit their visible area from this view. Since scrolling
+	// changes that viewport without resizing it, rebuild their cached clipping
+	// regions before requesting the redraw.
+	_UpdateViewClippingRegion(true);
+
 	// Invalidate in the new bounds coordinate space. If we invalidate before
 	// moving fBounds, updateRect is generated in old coordinates and clipping
 	// during drawing can miss newly visible scroll regions.
