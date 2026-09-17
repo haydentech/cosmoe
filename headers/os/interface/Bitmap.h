@@ -21,7 +21,8 @@ namespace BPrivate {
 enum {
 	B_BITMAP_CLEAR_TO_WHITE				= 0x00000001,
 	B_BITMAP_ACCEPTS_VIEWS				= 0x00000002,
-	B_BITMAP_IS_LOCKED					= 0x00000008,
+	B_BITMAP_IS_AREA					= 0x00000004,
+	B_BITMAP_IS_LOCKED					= 0x00000008 | B_BITMAP_IS_AREA,
 	B_BITMAP_IS_CONTIGUOUS				= 0x00000010 | B_BITMAP_IS_LOCKED,
 	B_BITMAP_IS_OFFSCREEN				= 0x00000020,
 		// Offscreen but non-overlay bitmaps are not supported on Haiku,
@@ -35,9 +36,10 @@ enum {
 
 	// Haiku extensions:
 	B_BITMAP_NO_SERVER_LINK				= 0x00000100,
-		// This has no effect on Cosmoe, as there is no server
+		// This is the default on Cosmoe, as there is no server
+	// Cosmoe extensions:
 	B_BITMAP_HIDPI						= 0x00080000,
-		// Cosmoe-only: Bitmap stores 2x backing pixels and should render at 1x logical size
+		// Bitmap stores 2x backing pixels and should render at 1x logical size
 };
 
 #define B_ANY_BYTES_PER_ROW	-1
@@ -57,6 +59,11 @@ public:
 								BBitmap(const BBitmap* source,
 									bool acceptsViews = false,
 									bool needsContiguous = false);
+								BBitmap(area_id area, ptrdiff_t areaOffset,
+									BRect bounds, uint32 flags,
+									color_space colorSpace,
+									int32 bytesPerRow = B_ANY_BYTES_PER_ROW,
+									screen_id screenID = B_MAIN_SCREEN_ID);
 	virtual						~BBitmap();
 
 	// Archiving
@@ -70,6 +77,7 @@ public:
 			status_t			LockBits(uint32* state = NULL);
 			void				UnlockBits();
 
+			area_id				Area() const;
 			void*				Bits() const;
 			size_t				BitsLength() const;
 			int32				BytesPerRow() const;
@@ -134,13 +142,17 @@ private:
 			int32				_ServerToken() const;
 			void				_InitObject(BRect bounds,
 									color_space colorSpace, uint32 flags,
-									int32 bytesPerRow, screen_id screenID);
+									int32 bytesPerRow, screen_id screenID,
+									area_id area = -1,
+									size_t areaOffset = 0);
 			void				_CleanUp();
 			void				_AssertPointer();
 
 private:
 			uint8*				fBasePointer;
 			size_t				fSize;
+			area_id				fArea;
+			ssize_t				fAreaOffset;
 			BRect				fBounds;
 			color_space			fColorSpace;
 			int32				fBytesPerRow;

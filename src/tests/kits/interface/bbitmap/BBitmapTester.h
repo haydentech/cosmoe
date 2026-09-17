@@ -26,6 +26,7 @@ class TBBitmapTester : public TestCase
 		TBBitmapTester(std::string name) : TestCase(name) {;}
 
 		void BBitmap1();
+		void BBitmapArea();
 
 		static Test* Suite();
 };
