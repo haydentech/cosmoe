@@ -8169,7 +8169,7 @@ BView::_Pulse()
 }
 
 
-inline void
+void
 BView::_UpdatePattern(::pattern pattern)
 {
 	fState->pattern = pattern;

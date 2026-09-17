@@ -23,6 +23,11 @@
 #include <sys/wait.h>
 #endif
 
+#ifdef _WIN32
+#include <windows.h>
+#undef PostMessage
+#endif
+
 #include "Placeholder.h"
 
 #include <Box.h>
@@ -1170,7 +1175,22 @@ IconView::IconView(BRect rect, uint32 followFlags)
 			}
 		}
 #elif _WIN32
-		fullPath = std::string(name) + ".exe";
+		char executablePath[MAX_PATH];
+		DWORD pathLength = GetModuleFileNameA(NULL, executablePath,
+			sizeof(executablePath));
+		if (pathLength == 0 || pathLength == sizeof(executablePath)) {
+			printf("Unable to find the Showcase executable directory\n");
+			return;
+		}
+
+		std::string executableDirectory(executablePath, pathLength);
+		size_t separator = executableDirectory.find_last_of("\\/");
+		if (separator == std::string::npos) {
+			printf("Unable to find the Showcase executable directory\n");
+			return;
+		}
+
+		fullPath = executableDirectory.substr(0, separator + 1) + name + ".exe";
 		resourcePath = fullPath;
 #elif __HAIKU__
 		BEntry ent(fullPath.c_str(), true);
@@ -1498,9 +1518,11 @@ IconView::MouseUp(BPoint where)
 			}
 		}
 #elif defined(_WIN32)
-		// Windows: use start command
-		std::string command = "start \"\" \"" + app.path + "\"";
-		system(command.c_str());
+		HINSTANCE result = ShellExecuteA(NULL, "open", app.path.c_str(), NULL,
+			NULL, SW_SHOWNORMAL);
+		if ((INT_PTR)result <= 32)
+			printf("Unable to launch %s (ShellExecute error %ld)\n",
+				app.path.c_str(), (long)(INT_PTR)result);
 #endif
 	}
 	

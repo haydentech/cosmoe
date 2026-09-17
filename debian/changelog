@@ -1,0 +1,5 @@
+cosmoe (0.9.0-1) unstable; urgency=medium
+
+  * Initial Debian package.
+
+ -- Bill Hayden <hayden@haydentech.com>  Thu, 17 Sep 2026 17:00:00 -0400

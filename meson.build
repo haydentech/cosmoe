@@ -211,6 +211,7 @@ public_inc_entries = [
 	'headers/private/storage',
 	'headers/private/system',
 	'headers/private/net',
+	'headers/private/netservices',
 	'headers/private/tracker',
 	'headers/os/add-ons/graphics',
 	'src/kits/interface/textview_support',
