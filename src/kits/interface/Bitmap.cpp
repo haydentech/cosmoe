@@ -24,15 +24,15 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include <unistd.h>
+
 #include <Application.h>
 #include <GraphicsDefs.h>
-#include <Locker.h>
+#include <OS.h>
 #include <View.h>
 #include <Window.h>
 
 #include <ApplicationPrivate.h>
-#include <Autolock.h>
-#include <ObjectList.h>
 #include <ServerProtocol.h>
 
 #include <BitmapCairoUtils.h>
@@ -42,10 +42,6 @@
 
 
 using namespace BPrivate;
-
-
-static BObjectList<BBitmap> sBitmapList;
-static BLocker sBitmapListLock;
 
 
 BBitmap::Private::Private(BBitmap* bitmap)
@@ -164,6 +160,8 @@ BBitmap::BBitmap(BRect bounds, uint32 flags, color_space colorSpace,
 	:
 	fBasePointer(NULL),
 	fSize(0),
+	fArea(-1),
+	fAreaOffset(-1),
 	fBounds(0, 0, -1, -1),
 	fColorSpace(B_NO_COLOR_SPACE),
 	fBytesPerRow(0),
@@ -190,6 +188,8 @@ BBitmap::BBitmap(BRect bounds, color_space colorSpace, bool acceptsViews,
 	:
 	fBasePointer(NULL),
 	fSize(0),
+	fArea(-1),
+	fAreaOffset(-1),
 	fBounds(0, 0, -1, -1),
 	fColorSpace(B_NO_COLOR_SPACE),
 	fBytesPerRow(0),
@@ -217,6 +217,8 @@ BBitmap::BBitmap(const BBitmap* source, bool acceptsViews, bool needsContiguous)
 	:
 	fBasePointer(NULL),
 	fSize(0),
+	fArea(-1),
+	fAreaOffset(-1),
 	fBounds(0, 0, -1, -1),
 	fColorSpace(B_NO_COLOR_SPACE),
 	fBytesPerRow(0),
@@ -242,6 +244,8 @@ BBitmap::BBitmap(const BBitmap& source, uint32 flags)
 	:
 	fBasePointer(NULL),
 	fSize(0),
+	fArea(-1),
+	fAreaOffset(-1),
 	fBounds(0, 0, -1, -1),
 	fColorSpace(B_NO_COLOR_SPACE),
 	fBytesPerRow(0),
@@ -265,6 +269,8 @@ BBitmap::BBitmap(const BBitmap& source)
 	:
 	fBasePointer(NULL),
 	fSize(0),
+	fArea(-1),
+	fAreaOffset(-1),
 	fBounds(0, 0, -1, -1),
 	fColorSpace(B_NO_COLOR_SPACE),
 	fBytesPerRow(0),
@@ -274,6 +280,38 @@ BBitmap::BBitmap(const BBitmap& source)
 	fInitError(B_NO_INIT)
 {
 	*this = source;
+}
+
+
+/*!	\brief Creates a BBitmap that stores its bits in an existing memory area.
+
+	The bitmap does not own \a area and must be destroyed before the area is
+	deleted. If the area belongs to another team, the caller should clone it
+	first.
+*/
+BBitmap::BBitmap(area_id area, ptrdiff_t areaOffset, BRect bounds,
+	uint32 flags, color_space colorSpace, int32 bytesPerRow,
+	screen_id screenID)
+	:
+	fBasePointer(NULL),
+	fSize(0),
+	fArea(-1),
+	fAreaOffset(-1),
+	fBounds(0, 0, -1, -1),
+	fColorSpace(B_NO_COLOR_SPACE),
+	fBytesPerRow(0),
+	fServerToken(-1),
+	fFlags(0),
+	fWindow(NULL),
+	fInitError(B_NO_INIT)
+{
+	if (area < 0) {
+		fInitError = B_BAD_VALUE;
+		return;
+	}
+
+	_InitObject(bounds, colorSpace, flags,
+		bytesPerRow, screenID, area, areaOffset);
 }
 
 
@@ -293,6 +331,8 @@ BBitmap::BBitmap(BMessage* data)
 	BArchivable(data),
 	fBasePointer(NULL),
 	fSize(0),
+	fArea(-1),
+	fAreaOffset(-1),
 	fBounds(0, 0, -1, -1),
 	fColorSpace(B_NO_COLOR_SPACE),
 	fBytesPerRow(0),
@@ -485,6 +525,16 @@ BBitmap::UnlockBits()
 
 	overlay_client_data* data = (overlay_client_data*)fBasePointer;
 	release_sem_etc(data->lock, 1, B_DO_NOT_RESCHEDULE);
+}
+
+
+/*! \brief Returns the ID of the area the bitmap data reside in.
+	\return The ID of the area the bitmap data reside in.
+*/
+area_id
+BBitmap::Area() const
+{
+	return fArea;
 }
 
 
@@ -1016,6 +1066,12 @@ void BBitmap::_ReservedBitmap2() {}
 void BBitmap::_ReservedBitmap3() {}
 
 
+int32
+BBitmap::_ServerToken() const
+{
+	return fServerToken;
+}
+
 
 /*!	\brief Initializes the bitmap.
 	\param bounds The bitmap dimensions.
@@ -1028,7 +1084,7 @@ void BBitmap::_ReservedBitmap3() {}
 */
 void
 BBitmap::_InitObject(BRect bounds, color_space colorSpace, uint32 flags,
-	int32 bytesPerRow, screen_id screenID)
+	int32 bytesPerRow, screen_id screenID, area_id area, size_t areaOffset)
 {
 //printf("BBitmap::InitObject(bounds: BRect(%.1f, %.1f, %.1f, %.1f), format: %ld, flags: %ld, bpr: %ld\n",
 //	   bounds.left, bounds.top, bounds.right, bounds.bottom, colorSpace, flags, bytesPerRow);
@@ -1036,6 +1092,10 @@ BBitmap::_InitObject(BRect bounds, color_space colorSpace, uint32 flags,
 	// TODO: Should we handle rounding of the "bounds" here? How does R5 behave?
 
 	status_t error = B_OK;
+
+	// Cosmoe has no app_server; record the Haiku-compatible flag but do not
+	// use it to choose the allocator. Heap vs. area is decided by 'area'.
+	flags |= B_BITMAP_NO_SERVER_LINK;
 
 	_CleanUp();
 
@@ -1063,20 +1123,53 @@ BBitmap::_InitObject(BRect bounds, color_space colorSpace, uint32 flags,
 	}
 	// allocate the bitmap buffer
 	if (error == B_OK) {
-		// TODO: Let the app_server return the size when it allocated the bitmap
-		int32 size = bytesPerRow * (bounds.IntegerHeight() + 1);
+		size_t size = bytesPerRow * (bounds.IntegerHeight() + 1);
 
-		fBasePointer = (uint8*)calloc(1, size);
-		if (fBasePointer) {
-			fSize = size;
-			fColorSpace = colorSpace;
-			fBounds = bounds;
-			fBytesPerRow = bytesPerRow;
-			fFlags = flags;
-		}  else
-			error = B_NO_MEMORY;
+		if (area < 0) {
+			fBasePointer = (uint8*)calloc(1, size);
+			if (fBasePointer) {
+				fSize = size;
+				fColorSpace = colorSpace;
+				fBounds = bounds;
+				fBytesPerRow = bytesPerRow;
+				fFlags = flags;
+			} else
+				error = B_NO_MEMORY;
+		} else {
+			if (area >= B_OK) {
+				// Use area provided by client
+
+				area_info info;
+				status_t infoStatus = get_area_info(area, &info);
+				if (infoStatus != B_OK)
+					error = infoStatus;
+				else if (info.address == NULL || info.team != getpid())
+					error = B_BAD_VALUE;
+				else if (areaOffset < 0
+					|| (size_t)areaOffset > info.size
+					|| size > info.size - (size_t)areaOffset) {
+					error = B_BAD_VALUE;
+				} else {
+					fBasePointer = (uint8*)info.address + areaOffset;
+					fSize = size;
+					fColorSpace = colorSpace;
+					fBounds = bounds;
+					fBytesPerRow = bytesPerRow;
+					fFlags = flags;
+					fArea = area;
+					fAreaOffset = areaOffset;
+				}
+			}
+		}
 
 		fWindow = NULL;
+	}
+
+	if (error != B_OK) {
+		fBasePointer = NULL;
+		fSize = 0;
+		fArea = -1;
+		fAreaOffset = -1;
 	}
 
 	fInitError = error;
@@ -1093,11 +1186,6 @@ BBitmap::_InitObject(BRect bounds, color_space colorSpace, uint32 flags,
 				memset(fBasePointer, 0xff, fSize);
 			}
 		}
-		// TODO: Creating an offscreen window with a non32 bit bitmap
-		// copies the current content of the bitmap to a back buffer.
-		// So at this point the bitmap has to be already cleared to white.
-		// Better move the above code to the server so the problem looks more
-		// clear.
 		if (flags & B_BITMAP_ACCEPTS_VIEWS) {
 			fServerToken = 1;	// All we care is that it's not -1
 			fWindow = new(std::nothrow) BWindow(Bounds(), fServerToken);
@@ -1113,8 +1201,7 @@ BBitmap::_InitObject(BRect bounds, color_space colorSpace, uint32 flags,
 }
 
 
-/*!	\brief Cleans up any memory allocated by the bitmap and
-		informs the server to do so as well (if needed).
+/*!	\brief Cleans up any memory allocated by the bitmap.
 */
 void
 BBitmap::_CleanUp()
@@ -1129,7 +1216,14 @@ BBitmap::_CleanUp()
 	if (fBasePointer == NULL)
 		return;
 
-	free(fBasePointer);
+	if (fArea < 0) {
+		free(fBasePointer);
+	} else {
+		// Wrapped client area: detach only. The caller owns the area.
+		fArea = -1;
+		fAreaOffset = -1;
+	}
+
 	fBasePointer = NULL;
 }
 

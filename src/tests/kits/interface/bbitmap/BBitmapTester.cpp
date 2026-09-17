@@ -5,6 +5,7 @@
 
 // Standard Includes -----------------------------------------------------------
 #include <stdio.h>
+#include <string.h>
 
 // System Includes -------------------------------------------------------------
 #include <Message.h>
@@ -214,11 +215,88 @@ bpr);
 }
 
 
+/*
+	BBitmap(area_id area, ptrdiff_t areaOffset, BRect bounds, uint32 flags,
+			color_space colorSpace, int32 bytesPerRow);
+	@results		Bits() alias the area at the given offset. Area() returns
+					the caller's area. Destroying the bitmap does not free the
+					area. Invalid areas/offsets fail InitCheck().
+ */
+void TBBitmapTester::BBitmapArea()
+{
+	BApplication app("application/x-vnd.obos.bitmap-area-constructor-test");
+
+	BRect bounds(0, 0, 31, 15);
+	const int32 width = bounds.IntegerWidth() + 1;
+	const int32 height = bounds.IntegerHeight() + 1;
+	const int32 bpr = get_bytes_per_row(B_RGB32, width);
+	const size_t bitsSize = (size_t)bpr * height;
+	const size_t offset = 64;
+	const size_t areaSize = offset + bitsSize;
+
+	void* address = NULL;
+	area_id area = create_area("bitmap test area", &address, B_ANY_ADDRESS,
+		areaSize, B_NO_LOCK, B_READ_AREA | B_WRITE_AREA);
+	CHK(area >= 0);
+	CHK(address != NULL);
+	memset(address, 0x5a, areaSize);
+
+	{
+		BBitmap bitmap(area, (ptrdiff_t)offset, bounds, 0, B_RGB32, bpr);
+		CHK(bitmap.InitCheck() == B_OK);
+		CHK(bitmap.IsValid() == true);
+		CHK(bitmap.Area() == area);
+		CHK(bitmap.Bits() == (uint8*)address + offset);
+		CHK(bitmap.BitsLength() == bitsSize);
+		CHK(bitmap.BytesPerRow() == bpr);
+		CHK(bitmap.ColorSpace() == B_RGB32);
+		CHK(bitmap.Bounds() == bounds);
+
+		memset(bitmap.Bits(), 0x11, bitsSize);
+		CHK(*((uint8*)address + offset) == 0x11);
+		CHK(*((uint8*)address + offset - 1) == 0x5a);
+	}
+
+	CHK(*((uint8*)address + offset) == 0x11);
+	area_info info;
+	CHK(get_area_info(area, &info) == B_OK);
+	CHK(info.address == address);
+
+	BBitmap heapBitmap(bounds, B_RGB32);
+	CHK(heapBitmap.InitCheck() == B_OK);
+	CHK(heapBitmap.Area() == -1);
+
+	BBitmap tooSmall(area, (ptrdiff_t)(areaSize - 4), bounds, 0, B_RGB32, bpr);
+	CHK(tooSmall.InitCheck() == B_BAD_VALUE);
+	CHK(tooSmall.Area() == -1);
+	CHK(tooSmall.Bits() == NULL);
+
+	BBitmap negativeOffset(area, (ptrdiff_t)-8, bounds, 0, B_RGB32, bpr);
+	CHK(negativeOffset.InitCheck() == B_BAD_VALUE);
+
+	BBitmap invalidArea((area_id)-1, 0, bounds, 0, B_RGB32, bpr);
+	CHK(invalidArea.InitCheck() == B_BAD_VALUE);
+
+	BBitmap missingArea((area_id)1000, 0, bounds, 0, B_RGB32, bpr);
+	CHK(missingArea.InitCheck() != B_OK);
+
+	{
+		BBitmap cleared(area, (ptrdiff_t)offset, bounds,
+			B_BITMAP_CLEAR_TO_WHITE, B_RGB32, bpr);
+		CHK(cleared.InitCheck() == B_OK);
+		CHK(*((uint8*)address + offset) == 0xff);
+	}
+
+	CHK(delete_area(area) == B_OK);
+}
+
+
 Test* TBBitmapTester::Suite()
 {
 	TestSuite* SuiteOfTests = new TestSuite;
 
 	ADD_TEST4(BBitmap, SuiteOfTests, TBBitmapTester, BBitmap1);
+	ADD_TEST4(BBitmap, SuiteOfTests, TBBitmapTester, BBitmapArea);
 
 	return SuiteOfTests;
 }
