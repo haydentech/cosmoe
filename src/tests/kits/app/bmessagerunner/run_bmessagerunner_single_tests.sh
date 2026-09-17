@@ -32,7 +32,7 @@ for t in "${tests[@]}"; do
   fi
 done
 
-echo "\nTest summary for BMessageRunner:"
+echo -e "\nTest summary for BMessageRunner:"
 for t in "${tests[@]}"; do
   if grep -q "READY_TO_ATTACH" "${OUT_DIR}/${t}.log"; then
     echo -n "${t}: READY_TO_ATTACH "
@@ -41,8 +41,8 @@ for t in "${tests[@]}"; do
 done
 
 if [ ${#failures[@]} -ne 0 ]; then
-  echo "\nSome tests failed: ${failures[*]}"
+  echo -e "\nSome tests failed: ${failures[*]}"
   exit 1
 else
-  echo "\nAll tests passed."
+  echo -e "\nAll tests passed."
 fi
