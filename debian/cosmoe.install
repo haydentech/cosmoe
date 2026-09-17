@@ -1,0 +1,7 @@
+usr/lib/*/addons/
+usr/lib/*/libbe.so
+usr/lib/*/libbnetapi.so*
+usr/lib/*/libcosmoe-*.so
+usr/lib/*/libgame.so
+usr/lib/*/libtracker.so
+usr/share/cosmoe/

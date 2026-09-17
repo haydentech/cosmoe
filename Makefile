@@ -1,5 +1,7 @@
 ifeq ($(shell id -u),0)
+ifeq ($(filter deb,$(MAKECMDGOALS)),)
 $(error Do not run this Makefile as root. Meson will request elevated privileges if needed.)
+endif
 endif
 
 # Detect operating system
@@ -23,6 +25,13 @@ else
     BUILDDIR := builddir
     CROSS_FILE :=
 endif
+
+# Debian package staging build. This deliberately uses a separate build directory
+# and DESTDIR so no project files are installed into the live system.
+DEB_BUILDDIR := builddir-deb
+DEB_DESTDIR := $(CURDIR)/debian/tmp
+DEB_MULTIARCH := $(shell dpkg-architecture -qDEB_HOST_MULTIARCH)
+
 
 ifeq ($(USE_BUILD_SCRIPT),yes)
 build:
@@ -51,9 +60,25 @@ install: configure
 
 clean:
 	rm -rf $(BUILDDIR)
+	rm -rf $(DEB_BUILDDIR) $(DEB_DESTDIR)
 
 distclean: clean
 	@echo "Distclean complete (builddir removed)"
+endif
+
+ifeq ($(COSMOE_DEBIAN_RULES),1)
+deb:
+	rm -rf $(DEB_BUILDDIR) $(DEB_DESTDIR)
+	meson setup $(DEB_BUILDDIR) --prefix=/usr --libdir=lib/$(DEB_MULTIARCH) \
+		-Denable_unit_test_compile=false
+	ninja -C $(DEB_BUILDDIR)
+	DESTDIR=$(DEB_DESTDIR) ninja -C $(DEB_BUILDDIR) install
+else
+deb:
+	rm -rf debian/packages
+	dpkg-buildpackage -us -uc -b
+	mkdir -p debian/packages
+	mv ../cosmoe*.deb debian/packages/
 endif
 
 # Windows cross-compilation using MXE on Linux or WSL
@@ -67,10 +92,13 @@ windows:
 	@echo "Building Windows binaries..."
 	ninja -C $(BUILDDIR)-windows
 	@echo ""
-	@echo "Windows build complete! Binaries are in $(BUILDDIR)-windows/"
+	@echo "Windows build complete! Build artifacts are in $(BUILDDIR)-windows/"
+	./collect-windows-binaries.sh
+	@echo "Windows apps and libraries collected into win-test/ directory"
 
 windows-clean:
 	rm -rf $(BUILDDIR)-windows
-	@echo "Windows build directory removed"
+	rm -rf win-test
+	@echo "Windows build directory and win-test directory removed"
 
-.PHONY: build configure install clean distclean windows windows-clean
+.PHONY: build configure install clean distclean deb windows windows-clean

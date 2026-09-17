@@ -1,0 +1,16 @@
+#!/usr/bin/make -f
+
+%:
+	dh $@
+
+override_dh_auto_clean:
+	rm -rf builddir-deb debian/tmp
+
+override_dh_auto_configure:
+	@:
+
+override_dh_auto_build:
+	@:
+
+override_dh_auto_install:
+	COSMOE_DEBIAN_RULES=1 $(MAKE) deb

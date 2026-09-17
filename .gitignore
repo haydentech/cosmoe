@@ -51,3 +51,14 @@ cosmoe.html
 .vscode/settings.json
 win-test
 documentation
+media
+debian/cosmoe
+debian/.debhelper
+debian/cosmoe-apps
+debian/cosmoe-dev
+debian/cosmoe
+debian/packages
+debian/tmp
+/debian/files
+/debian/debhelper-build-stamp
+/debian/*.substvars
