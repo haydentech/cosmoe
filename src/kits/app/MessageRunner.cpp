@@ -51,6 +51,7 @@ typedef struct RunnerData {
 	pthread_t thread;
 	bool detach;
 	pthread_mutex_t mutex;
+	pthread_cond_t condition;
 	volatile bool shouldStop;
 	volatile int refCount;  // Fact freeing while in use
 	bigtime_t nextTime;  // Absolute time for next message send
@@ -77,6 +78,7 @@ void destroy_runner(int32 token)
 				// Signal thread to stop gracefully
 				pthread_mutex_lock(&runner->mutex);
 				runner->shouldStop = true;
+				pthread_cond_signal(&runner->condition);
 				
 				// Wait for any in-progress SendMessage to complete
 				// The thread increments refCount before SendMessage and decrements after
@@ -91,6 +93,7 @@ void destroy_runner(int32 token)
 				pthread_join(runner->thread, NULL);
 				
 				pthread_mutex_destroy(&runner->mutex);
+				pthread_cond_destroy(&runner->condition);
 				free(runner);
 			}
 			
@@ -478,23 +481,22 @@ void* MessageRunnerLoop(void *data)
 		bigtime_t interval = runner->interval;
 		pthread_mutex_unlock(&runner->mutex);
 		
-		// Sleep until next send time
+		// Wait until the next send time, or until parameters or shutdown change.
 		bigtime_t now = system_time();
 		if (nextTime > now) {
 			bigtime_t sleepTime = nextTime - now;
 			struct timespec ts;
-			ts.tv_sec = sleepTime / 1000000;
-			ts.tv_nsec = (sleepTime % 1000000) * 1000;
-			
-			// nanosleep can be interrupted
-			while (nanosleep(&ts, &ts) == -1 && errno == EINTR) {
-				// Check if we should stop after interruption
-				pthread_mutex_lock(&runner->mutex);
-				shouldStop = runner->shouldStop;
-				pthread_mutex_unlock(&runner->mutex);
-				if (shouldStop)
-					break;
+			clock_gettime(CLOCK_REALTIME, &ts);
+			ts.tv_sec += sleepTime / 1000000;
+			ts.tv_nsec += (sleepTime % 1000000) * 1000;
+			if (ts.tv_nsec >= 1000000000) {
+				ts.tv_sec++;
+				ts.tv_nsec -= 1000000000;
 			}
+
+			pthread_mutex_lock(&runner->mutex);
+			pthread_cond_timedwait(&runner->condition, &runner->mutex, &ts);
+			pthread_mutex_unlock(&runner->mutex);
 		}
 		
 		// Check again if we should stop after sleeping
@@ -629,11 +631,13 @@ BMessageRunner::_RegisterRunner(BMessenger target, const BMessage* message,
 	runner->refCount = 0;
 	runner->nextTime = add_time(system_time(), interval);  // First message sent after interval delay
 	pthread_mutex_init(&runner->mutex, NULL);
+	pthread_cond_init(&runner->condition, NULL);
 
 	// Allocate token on heap to pass safely to thread
 	int32* tokenPtr = (int32*)malloc(sizeof(int32));
 	if (tokenPtr == NULL) {
 		pthread_mutex_destroy(&runner->mutex);
+		pthread_cond_destroy(&runner->condition);
 		delete runner->message;
 		free(runner);
 		return B_NO_MEMORY;
@@ -655,6 +659,7 @@ BMessageRunner::_RegisterRunner(BMessenger target, const BMessage* message,
 	messageRunners.RemoveItem(runner);
 	messageRunnersLock.Unlock();
 	pthread_mutex_destroy(&runner->mutex);
+	pthread_cond_destroy(&runner->condition);
 	delete runner->message;
 	free(runner);
 	return B_ERROR;
@@ -713,6 +718,7 @@ BMessageRunner::_SetParams(bool resetInterval, bigtime_t interval,
 				runner->count = count;
 
 			found = runner->count != 0;
+			pthread_cond_signal(&runner->condition);
 			pthread_mutex_unlock(&runner->mutex);
 			break;
 		}

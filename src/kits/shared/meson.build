@@ -23,6 +23,8 @@ srcs_shared = [
     'NaturalCompare.cpp',
     'RWLocker.cpp',
     'SettingsHandler.cpp',
+	'SettingsMessage.cpp',
+    'PromptWindow.cpp',
     'StatusView.cpp',
     'StringForSize.cpp',
     'Thread.cpp',
