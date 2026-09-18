@@ -117,6 +117,10 @@ LDFLAGS		+= $(DEBUG)
 # Binary-type-specific linker flags.
 ifeq ($(strip $(TYPE)), SHARED)
 	LDFLAGS += -shared
+	ifeq ($(UNAME_S), Linux)
+		CFLAGS += -fPIC
+		CXXFLAGS += -fPIC
+	endif
 endif
 
 # Get the compiler version.
@@ -345,7 +349,10 @@ CATKEYS_DIR	:= locales
 
 # Set the directory for internationalization resource data (catalogs) if it
 # isn't already.
-CATALOGS_DIR := $(OBJ_DIR)/$(APP_MIME_SIG)
+# Haiku Makefiles conventionally quote MIME signatures. Remove either kind of
+# surrounding quote when the signature is used as part of a filesystem path.
+APP_MIME_SIG_PATH := $(patsubst "%",%,$(patsubst '%',%,$(strip $(APP_MIME_SIG))))
+CATALOGS_DIR := $(OBJ_DIR)/$(APP_MIME_SIG_PATH)
 
 # Pseudo-function for converting a list of language codes in CATALOGS variable
 # to a corresponding list of catkeys files in $(CATALOGS_DIR)/xx.catalog
@@ -457,7 +464,7 @@ $(CATKEYS_DIR)::
 
 # Create the localization data directory if it doesn't exist.
 $(CATALOGS_DIR):: $(OBJ_DIR)
-	@[ -d $(CATALOGS_DIR) ] || mkdir $(CATALOGS_DIR) >/dev/null 2>&1
+	@[ -d $(CATALOGS_DIR) ] || mkdir -p $(CATALOGS_DIR) >/dev/null 2>&1
 
 # Rules to create the dependency files.
 $(OBJ_DIR)/%.d : %.c
@@ -616,8 +623,8 @@ CATALOG_INSTALL_DIR := $(shell finddir B_USER_NONPACKAGED_DATA_DIRECTORY)/locale
 
 # Rule to install localization resources catalogs.
 catalogsinstall :: catalogs
-	mkdir -p "$(DESTDIR)$(CATALOG_INSTALL_DIR)/$(APP_MIME_SIG)"
-	-cp $(CATALOGS_DIR)/*.catalog "$(DESTDIR)$(CATALOG_INSTALL_DIR)/$(APP_MIME_SIG)"
+	mkdir -p "$(DESTDIR)$(CATALOG_INSTALL_DIR)/$(APP_MIME_SIG_PATH)"
+	-cp $(CATALOGS_DIR)/*.catalog "$(DESTDIR)$(CATALOG_INSTALL_DIR)/$(APP_MIME_SIG_PATH)"
 
 # Alternate way of storing localization catalogs: bind them into the program
 # executable's resources.
