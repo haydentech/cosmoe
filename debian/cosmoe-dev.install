@@ -5,6 +5,8 @@ usr/bin/addattr
 usr/bin/catattr
 usr/bin/copyattr
 usr/bin/dumpcatalog
+usr/bin/linkcatkeys
+usr/bin/collectcatkeys
 usr/bin/finddir
 usr/bin/findpaths
 usr/bin/getarch

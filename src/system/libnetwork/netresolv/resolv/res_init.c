@@ -741,7 +741,7 @@ res_nclose(res_state statp)
 {
 	int ns;
 
-	if (statp->_vcsock >= 0) {
+	if (statp->_vcsock >= 0) { 
 		(void) close(statp->_vcsock);
 		statp->_vcsock = -1;
 		statp->_flags &= ~(RES_F_VC | RES_F_CONN);
@@ -835,7 +835,7 @@ res_setservers(res_state statp, const union res_sockaddr_union *set, int cnt)
 		set++;
 	}
 	statp->nscount = nserv;
-
+	
 }
 
 int
@@ -848,7 +848,7 @@ res_getservers(res_state statp, union res_sockaddr_union *set, int cnt)
 	for (i = 0; i < statp->nscount && i < cnt; i++) {
 		if (statp->_u._ext.ext)
 			family = statp->_u._ext.ext->nsaddrs[i].sin.sin_family;
-		else
+		else 
 			family = statp->nsaddr_list[i].sin_family;
 
 		switch (family) {

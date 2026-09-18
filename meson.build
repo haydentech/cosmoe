@@ -842,7 +842,7 @@ executable(
 		'-DB_TRANSLATE_MARK(x)=x',
 		'-DDefaultCatalog=ToolsDefaultCatalog',
 	],
-	install: false,
+	install: true,
 )
 
 executable(
@@ -864,7 +864,7 @@ executable(
 		'-DB_TRANSLATE_MARK(x)=x',
 		'-DDefaultCatalog=ToolsDefaultCatalog',
 	],
-	install: false,
+	install: true,
 )
 
 executable(
