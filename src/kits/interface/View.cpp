@@ -2752,8 +2752,9 @@ BView::GetClippingRegion(BRegion* region) const
 	if (!region)
 		return;
 
-	// Start with the structural clipping (view bounds minus children)
+	// Start with the structural clipping (view bounds minus children, offset by scroll)
 	*region = fLocalClipping;
+	region->OffsetBy(fBounds.left, fBounds.top);
 	
 	// Intersect with the current state's user clipping if set
 	if (fState->clipping_region_used)
