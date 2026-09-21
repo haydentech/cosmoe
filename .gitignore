@@ -51,7 +51,7 @@ cosmoe.html
 .vscode/settings.json
 win-test
 documentation
-media
+/media
 debian/cosmoe
 debian/.debhelper
 debian/cosmoe-apps
