@@ -155,41 +155,6 @@ read_sample_as_float(const uint8* data, uint32 format)
 }
 
 
-static void
-mix_buffer_into_float(const void* rawBuffer, size_t frames,
-	const media_raw_audio_format& sourceFormat, float gain, float* output,
-	uint32 outputChannels)
-{
-	const uint8* input = (const uint8*)rawBuffer;
-	size_t sampleSize = bytes_per_sample(sourceFormat.format);
-	if (input == NULL || sampleSize == 0 || sourceFormat.channel_count == 0)
-		return;
-
-	for (size_t frame = 0; frame < frames; frame++) {
-		const uint8* sourceFrame = input + frame * sampleSize * sourceFormat.channel_count;
-		for (uint32 channel = 0; channel < outputChannels; channel++) {
-			float sample;
-			if (outputChannels == 1 && sourceFormat.channel_count > 1) {
-				sample = 0.0f;
-				for (uint32 sourceChannel = 0; sourceChannel < sourceFormat.channel_count;
-					sourceChannel++) {
-					sample += read_sample_as_float(sourceFrame + sourceChannel * sampleSize,
-						sourceFormat.format);
-				}
-				sample /= sourceFormat.channel_count;
-			} else {
-				uint32 sourceChannel = sourceFormat.channel_count == 1
-					? 0 : std::min(channel, sourceFormat.channel_count - 1);
-				sample = read_sample_as_float(sourceFrame + sourceChannel * sampleSize,
-					sourceFormat.format);
-			}
-
-			output[frame * outputChannels + channel] += sample * gain;
-		}
-	}
-}
-
-
 static std::atomic<int32> sNextPlayId(1);
 
 } // namespace
@@ -217,6 +182,12 @@ private:
 	int64 fFramesRendered;
 	bool fRegistered;
 	std::vector<uint8> fScratch;
+	std::vector<float> fSourceFloatScratch;
+	std::vector<float> fConvertedScratch;
+	size_t fSourceFrameOffset;
+	size_t fSourceFramesAvailable;
+	ma_data_converter fConverter;
+	bool fConverterInitialized;
 };
 
 }
@@ -299,8 +270,10 @@ ensure_backend(const media_raw_audio_format& requestedFormat)
 	}
 
 	if (sBackend.initialized) {
+		// The existing device stays at its current mix rate. Individual
+		// SoundPlayNodes resample their input in Render() when necessary.
 		if (sBackend.running || !sBackend.players.empty())
-			return B_BUSY;
+			return B_OK;
 
 		ma_device_uninit(&sBackend.device);
 		std::memset(&sBackend.device, 0, sizeof(sBackend.device));
@@ -352,14 +325,20 @@ SoundPlayNode::SoundPlayNode(BSoundPlayer* owner,
 			fFormat(format),
 			fPlaybackFrameRate(format.frame_rate),
 			fFramesRendered(0),
-			fRegistered(false)
+			fRegistered(false),
+			fSourceFrameOffset(0),
+			fSourceFramesAvailable(0),
+			fConverterInitialized(false)
 	{
+		std::memset(&fConverter, 0, sizeof(fConverter));
 	}
 
 
 SoundPlayNode::~SoundPlayNode()
 	{
 		Stop();
+	if (fConverterInitialized)
+		ma_data_converter_uninit(&fConverter, NULL);
 	}
 
 
@@ -381,6 +360,17 @@ SoundPlayNode::Start()
 		{
 			std::lock_guard<std::mutex> guard(sBackend.lock);
 			fPlaybackFrameRate = sBackend.mixFormat.frame_rate;
+		if (!fConverterInitialized) {
+			ma_data_converter_config config = ma_data_converter_config_init(
+				ma_format_f32, ma_format_f32, fFormat.channel_count,
+				sBackend.mixFormat.channel_count, (ma_uint32)fFormat.frame_rate,
+				(ma_uint32)sBackend.mixFormat.frame_rate);
+			if (ma_data_converter_init(&config, NULL, &fConverter) != MA_SUCCESS)
+				return B_ERROR;
+			fConverterInitialized = true;
+			fSourceFrameOffset = 0;
+			fSourceFramesAvailable = 0;
+		}
 			if (!fRegistered) {
 				sBackend.players.push_back(this);
 				fRegistered = true;
@@ -458,14 +448,62 @@ SoundPlayNode::Render(float* output, ma_uint32 frames,
 
 		float masterGain = linear_from_db(fOwner->fVolumeDB);
 		if ((fOwner->fFlags & kFlagHasData) != 0
-			&& (fOwner->fPlayBufferFunc != NULL || true)) {
-			size_t bytes = frames * frame_size(fFormat);
-			if (bytes > 0) {
-				fScratch.resize(bytes);
-				std::memset(fScratch.data(), 0, bytes);
-				fOwner->PlayBuffer(fScratch.data(), bytes, fFormat);
-				mix_buffer_into_float(fScratch.data(), frames, fFormat, masterGain,
-					output, mixFormat.channel_count);
+			&& fConverterInitialized) {
+			size_t sourceFrameSize = frame_size(fFormat);
+			size_t callbackFrames = sourceFrameSize > 0
+				? fFormat.buffer_size / sourceFrameSize : 0;
+			if (callbackFrames == 0)
+				callbackFrames = 1;
+
+			if (sourceFrameSize == 0)
+				callbackFrames = 0;
+
+			fConvertedScratch.resize((size_t)frames * mixFormat.channel_count);
+			size_t outputFrames = 0;
+			while (callbackFrames > 0 && outputFrames < frames) {
+				if (fSourceFramesAvailable == 0) {
+					size_t bytes = callbackFrames * sourceFrameSize;
+					fScratch.resize(bytes);
+					std::memset(fScratch.data(), 0, bytes);
+					fOwner->PlayBuffer(fScratch.data(), bytes, fFormat);
+					fSourceFloatScratch.resize(callbackFrames * fFormat.channel_count);
+					size_t sampleSize = bytes_per_sample(fFormat.format);
+					for (size_t frame = 0; frame < callbackFrames; frame++) {
+						for (uint32 channel = 0; channel < fFormat.channel_count;
+							channel++) {
+							fSourceFloatScratch[frame * fFormat.channel_count + channel]
+								= read_sample_as_float(fScratch.data()
+									+ (frame * fFormat.channel_count + channel)
+										* sampleSize, fFormat.format);
+						}
+					}
+					fSourceFrameOffset = 0;
+					fSourceFramesAvailable = callbackFrames;
+				}
+
+				ma_uint64 inputFrames = fSourceFramesAvailable;
+				ma_uint64 requestedOutputFrames = frames - outputFrames;
+				const float* input = fSourceFloatScratch.data()
+					+ fSourceFrameOffset * fFormat.channel_count;
+				float* converted = fConvertedScratch.data()
+					+ outputFrames * mixFormat.channel_count;
+				if (ma_data_converter_process_pcm_frames(&fConverter, input,
+						&inputFrames, converted, &requestedOutputFrames) != MA_SUCCESS)
+					break;
+
+				fSourceFrameOffset += (size_t)inputFrames;
+				fSourceFramesAvailable -= (size_t)inputFrames;
+				outputFrames += (size_t)requestedOutputFrames;
+				if (inputFrames == 0 && requestedOutputFrames == 0)
+					break;
+			}
+
+			for (size_t frame = 0; frame < outputFrames; frame++) {
+				for (uint32 channel = 0; channel < mixFormat.channel_count; channel++) {
+					output[frame * mixFormat.channel_count + channel]
+						+= fConvertedScratch[frame * mixFormat.channel_count + channel]
+							* masterGain;
+				}
 			}
 		}
 
@@ -489,8 +527,8 @@ SoundPlayNode::Render(float* output, ma_uint32 frames,
 				playing->id = queued->id;
 				playing->delta = 0;
 				float ratio = queued->sound->Format().frame_rate > 0.0f
-					&& fFormat.frame_rate > 0.0f
-					? queued->sound->Format().frame_rate / fFormat.frame_rate
+				&& mixFormat.frame_rate > 0.0f
+					? queued->sound->Format().frame_rate / mixFormat.frame_rate
 					: 1.0f;
 				playing->rate = std::max(1, (int32)(ratio * 65536.0f));
 				playing->wait_sem = create_sem(0, "sound player wait");
