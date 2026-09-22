@@ -649,8 +649,11 @@ view_redraw_handler(struct widget *widget, void *data)
 					const char* backendName = cosmoe_backend_get_current_name();
 					const bool cocoaBackend = backendName != NULL
 						&& strcmp(backendName, "cocoa") == 0;
+					const bool waylandBackend = backendName != NULL
+						&& strcmp(backendName, "Wayland") == 0;
+					
 					const BRegion& dirtyRegion = window->fBackingSurfaceDirtyRegion;
-					if (!cocoaBackend && dirtyRegion.CountRects() > 0) {
+					if (!cocoaBackend && !waylandBackend && dirtyRegion.CountRects() > 0) {
 						cairo_save(cr);
 						for (int32 i = 0; i < dirtyRegion.CountRects(); i++) {
 							BRect rect = dirtyRegion.RectAt(i);
@@ -661,6 +664,10 @@ view_redraw_handler(struct widget *widget, void *data)
 						cairo_paint(cr);
 						cairo_restore(cr);
 					} else {
+						// A Wayland shm buffer has no preserved contents when a
+						// different buffer leaf is attached. Copy the complete,
+						// opaque window backing store instead of treating this as
+						// a partial repaint of a persistent target.
 						// Cocoa's CGContext is already clipped to drawRect:'s dirty
 						// region. Reapplying fBackingSurfaceDirtyRegion here is unsafe:
 						// it is shared with asynchronous update requests and can no
