@@ -5953,7 +5953,7 @@ window_apply_desktop_state(struct window *window)
 	zwlr_layer_surface_v1_set_exclusive_zone(window->layer_surface, 0);
 	zwlr_layer_surface_v1_set_margin(window->layer_surface, 0, 0, 0, 0);
 	zwlr_layer_surface_v1_set_keyboard_interactivity(window->layer_surface,
-		ZWLR_LAYER_SURFACE_V1_KEYBOARD_INTERACTIVITY_NONE);
+		ZWLR_LAYER_SURFACE_V1_KEYBOARD_INTERACTIVITY_ON_DEMAND);
 	zwlr_layer_surface_v1_set_size(window->layer_surface, 0, 0);
 }
 
