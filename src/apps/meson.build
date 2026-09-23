@@ -41,6 +41,7 @@ app_dirs = [
     'stylededit',
     'sudoku',
     'terminal',
+	'webpositive'
 ]
 
 if is_linux
