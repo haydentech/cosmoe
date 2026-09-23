@@ -2987,9 +2987,9 @@ BView::DrawBitmapAsync(const BBitmap* bitmap, BRect bitmapRect /* source */, BRe
 	double destHeight = viewRect.Height() + 1.0;
 	double xScale = destWidth / sourceWidth;
 	double yScale = destHeight / sourceHeight;
-	const bool isTiled = (fBitmapOptions & B_TILE_BITMAP) == B_TILE_BITMAP
-		|| (fBitmapOptions & B_TILE_BITMAP_X) == B_TILE_BITMAP_X
-		|| (fBitmapOptions & B_TILE_BITMAP_Y) == B_TILE_BITMAP_Y;
+	const bool isTiled = (options & B_TILE_BITMAP) == B_TILE_BITMAP
+		|| (options & B_TILE_BITMAP_X) == B_TILE_BITMAP_X
+		|| (options & B_TILE_BITMAP_Y) == B_TILE_BITMAP_Y;
 
 	if (!isTiled) {
 		// Non-tiled bitmaps must be clipped to the destination rectangle
@@ -3010,7 +3010,7 @@ BView::DrawBitmapAsync(const BBitmap* bitmap, BRect bitmapRect /* source */, BRe
 		cairo_pattern_set_filter(pattern, CAIRO_FILTER_NEAREST);
 	}
 
-	if ((fBitmapOptions & B_TILE_BITMAP) == B_TILE_BITMAP) {
+	if ((options & B_TILE_BITMAP) == B_TILE_BITMAP) {
 		// tile in both axes
 		cairo_pattern_t* patt = cairo_pattern_create_for_surface(imageSurface);
 		cairo_pattern_set_extend(patt, CAIRO_EXTEND_REPEAT);
@@ -3060,7 +3060,7 @@ BView::DrawBitmapAsync(const BBitmap* bitmap, BRect bitmapRect /* source */, BRe
 		}
 		cairo_pattern_destroy(patt);
 
-	} else if (fBitmapOptions & B_TILE_BITMAP_X) {
+	} else if (options & B_TILE_BITMAP_X) {
 		// tile in x axis
 		cairo_pattern_t* patt = cairo_pattern_create_for_surface(imageSurface);
 		cairo_pattern_set_extend(patt, CAIRO_EXTEND_REPEAT);
@@ -3101,7 +3101,7 @@ BView::DrawBitmapAsync(const BBitmap* bitmap, BRect bitmapRect /* source */, BRe
 		}
 		cairo_pattern_destroy(patt);
 
-	} else if (fBitmapOptions & B_TILE_BITMAP_Y) {
+	} else if (options & B_TILE_BITMAP_Y) {
 		// tile in y axis
 		cairo_pattern_t* patt = cairo_pattern_create_for_surface(imageSurface);
 		cairo_pattern_set_extend(patt, CAIRO_EXTEND_REPEAT);

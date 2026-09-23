@@ -90,7 +90,6 @@
   - Drag selecting often leaves a small amount of stale pixels behind from the selection rectangle
   - Resizing the columns on open/save panels produces graphical artifacts and/or shows through to the window below
   - If you empty the trash, it succeeds, but the trash icon does not change
-  - If you set the desktop background to tile, every icon on the desktop also gets tiled
 
 
 ## Historical Bugs -- not specifically fixed, but haven't been seen in a long time, so may be fixed by another change
