@@ -103,6 +103,7 @@ enum {
 	kMsgStretchToWindow			= 'mStW',
 	kMsgNextSlide				= 'mNxS',
 	kMsgToggleToolBar			= 'mTTB',
+	kMsgToggleBoundariesMarks	= 'mTBM',
 	kMsgSlideToolBar			= 'mSTB',
 	kMsgFinishSlidingToolBar	= 'mFST'
 };
@@ -118,7 +119,7 @@ enum {
 ShowImageWindow::ShowImageWindow(BRect frame, const entry_ref& ref,
 	const BMessenger& trackerMessenger)
 	:
-	BWindow(frame, "", B_DOCUMENT_WINDOW, 0),
+	BWindow(frame, kApplicationName, B_DOCUMENT_WINDOW, 0),
 	fNavigator(ref, trackerMessenger),
 	fSavePanel(NULL),
 	fBar(NULL),
@@ -133,6 +134,7 @@ ShowImageWindow::ShowImageWindow(BRect frame, const entry_ref& ref,
 	fFullScreen(false),
 	fShowCaption(true),
 	fShowToolBar(true),
+	fShowBoundariesMarks(false),
 	fPrintSettings(NULL),
 	fSlideShowRunner(NULL),
 	fSlideShowDelay(kDefaultSlideShowDelay)
@@ -226,6 +228,8 @@ ShowImageWindow::ShowImageWindow(BRect frame, const entry_ref& ref,
 			| B_FRAME_EVENTS);
 	fImageView->SetExplicitMinSize(BSize(0, 0));
 	gridLayout->AddView(fImageView, 0, 0, 2, 1);
+
+	fImageView->EnableBoundariesMarks(fShowBoundariesMarks);
 
 	// create the scroll bars (wrapped to avoid double borders)
 	fVScrollBar = new BScrollBar(NULL, NULL, 0, 0, B_VERTICAL); {
@@ -359,6 +363,10 @@ ShowImageWindow::_BuildViewMenu(BMenu* menu, bool popupMenu)
 
 	_MarkMenuItem(menu, MSG_SCALE_BILINEAR, fImageView->ScaleBilinear());
 	_MarkMenuItem(menu, kMsgStretchToWindow, fImageView->StretchesToBounds());
+
+	_AddItemMenu(menu, B_TRANSLATE("Show boundaries marks"),
+		kMsgToggleBoundariesMarks, 'M', 0, this);
+	_MarkMenuItem(menu, kMsgToggleBoundariesMarks, fImageView->IsBoundariesMarksEnabled());
 
 	if (!popupMenu) {
 		_AddItemMenu(menu, B_TRANSLATE("Show tool bar"), kMsgToggleToolBar,
@@ -1083,6 +1091,20 @@ ShowImageWindow::MessageReceived(BMessage* message)
 			}
 			break;
 		}
+
+		case kMsgToggleBoundariesMarks:
+		{
+			fShowBoundariesMarks = _ToggleMenuItem(message->what);
+			fImageView->EnableBoundariesMarks(fShowBoundariesMarks);
+
+			ShowImageSettings* settings = my_app->Settings();
+			if (settings->Lock()) {
+				settings->SetBool("ShowBoundariesMarks", fShowBoundariesMarks);
+				settings->Unlock();
+			}
+			break;
+		}
+
 		case kShowToolBarIfEnabled:
 		{
 			bool show;
@@ -1091,6 +1113,7 @@ ShowImageWindow::MessageReceived(BMessage* message)
 			_SetToolBarVisible(fShowToolBar && show, true);
 			break;
 		}
+
 		case kMsgSlideToolBar:
 		{
 			float offset;
@@ -1103,6 +1126,7 @@ ShowImageWindow::MessageReceived(BMessage* message)
 			}
 			break;
 		}
+
 		case kMsgFinishSlidingToolBar:
 		{
 			float offset;
@@ -1168,7 +1192,7 @@ ShowImageWindow::_LoadError(const entry_ref& ref, status_t status)
 	const char* errorMessage = B_TRANSLATE_CONTEXT("Could not load image! Either the "
 			"file or an image translator for it does not exist.",
 			"LoadAlerts");
-	BAlert* alert = new BAlert(B_TRANSLATE_SYSTEM_NAME("ShowImage"), errorMessage,
+	BAlert* alert = new BAlert(kApplicationName, errorMessage,
 		B_TRANSLATE_CONTEXT("OK", "Alerts"), NULL, NULL,
 		B_WIDTH_AS_USUAL, B_STOP_ALERT);
 	alert->SetFlags(alert->Flags() | B_CLOSE_ON_ESCAPE);
@@ -1388,6 +1412,7 @@ ShowImageWindow::_ToggleFullScreen()
 
 	fImageView->SetHideIdlingCursor(fFullScreen);
 	fImageView->SetShowCaption(fFullScreen && fShowCaption);
+	fImageView->SetNoBackground(fFullScreen && fSlideShowRunner != NULL);
 
 	Layout(false);
 		// We need to manually relayout here, as the views are layouted
@@ -1418,6 +1443,8 @@ ShowImageWindow::_ApplySettings()
 			settings->GetFloat("PO:Height", fPrintOptions.Height()));
 
 		fShowToolBar = settings->GetBool("ShowToolBar", fShowToolBar);
+
+		fShowBoundariesMarks = settings->GetBool("ShowBoundariesMarks", fShowBoundariesMarks);
 
 		settings->Unlock();
 	}
@@ -1454,7 +1481,6 @@ ShowImageWindow::_PageSetup()
 	}
 
 	return status == B_OK;
-	return false;
 }
 
 

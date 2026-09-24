@@ -1754,7 +1754,7 @@ _init_interface_kit_()
 
 	// Fallback to compiled-in control look if no add-on found
 	if (be_control_look == NULL) {
-		printf("No ControlLook add-on is loaded.  Using built-in Haiku ControlLook\n");
+		//fprintf(stderr, "No ControlLook add-on is loaded.  Using built-in Haiku ControlLook\n");
 		be_control_look = new HaikuControlLook();
 	}
 
