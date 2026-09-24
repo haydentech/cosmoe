@@ -234,6 +234,7 @@ BDirectWindow::ConvertToMessage(void* raw, int32 code)
 void
 BDirectWindow::DirectConnected(direct_buffer_info* info)
 {
+	// implemented in subclasses
 }
 
 
@@ -246,23 +247,34 @@ BDirectWindow::GetClippingRegion(BRegion* region, BPoint* origin) const
 	if (!_LockDirect())
 		return B_ERROR;
 
-	if (!fInDirectConnect || fBufferDesc == NULL) {
+	if (!fInDirectConnected || fBufferDesc == NULL) {
 		_UnlockDirect();
 		return B_ERROR;
 	}
 
-	int32 originX = origin != NULL ? (int32)origin->x : 0;
-	int32 originY = origin != NULL ? (int32)origin->y : 0;
+	// BPoint's coordinates are floats. We can only work
+	// with integers._DaemonStarter
+	int32 originX, originY;
+	if (origin == NULL) {
+		originX = 0;
+		originY = 0;
+	} else {
+		originX = (int32)origin->x;
+		originY = (int32)origin->y;
+	}
 
 	region->MakeEmpty();
 	uint32 clipCount = std::min(fBufferDesc->clip_list_count,
 		(uint32)((fInfoAreaSize - sizeof(direct_buffer_info))
 			/ sizeof(clipping_rect) + 1));
-	for (uint32 index = 0; index < clipCount; index++)
-		region->Include(fBufferDesc->clip_list[index]);
+	for (uint32 c = 0; c < clipCount; c++)
+		region->Include(fBufferDesc->clip_list[c]);
+
+	// adjust bounds by the given origin point
 	region->OffsetBy(-originX, -originY);
 
 	_UnlockDirect();
+
 	return B_OK;
 }
 
@@ -366,10 +378,11 @@ BDirectWindow::_UnlockDirect() const
 void
 BDirectWindow::_InitData()
 {
-	fDaemonKiller = false;
 	fConnectionEnable = false;
 	fIsFullScreen = false;
-	fInDirectConnect = false;
+	fInDirectConnected = false;
+
+	fDaemonKiller = false;
 	fDirectLock = 0;
 	fDirectSem = -1;
 	fDirectLockCount = 0;
@@ -377,10 +390,10 @@ BDirectWindow::_InitData()
 	fDirectLockStack = NULL;
 	fDisableSem = -1;
 	fDisableSemAck = -1;
+
 	fInitStatus = 0;
+
 	fInfoAreaSize = kDirectWindowInfoSize;
-	fClonedClippingArea = -1;
-	fSourceClippingArea = -1;
 	fDirectDaemonId = -1;
 	fBufferDesc = (direct_buffer_info*)calloc(1, fInfoAreaSize);
 }
@@ -389,6 +402,9 @@ BDirectWindow::_InitData()
 void
 BDirectWindow::_DisposeData()
 {
+	// Terminate the connection: we can't destroy
+	// the object until the client receives the B_DIRECT_STOP
+	// notification, or bad things will happen
 	if (fConnectionEnable)
 		_NotifyDirectConnection(B_DIRECT_STOP);
 
@@ -464,9 +480,9 @@ BDirectWindow::_NotifyDirectConnection(direct_buffer_state state)
 
 	_FillDirectBufferInfo(state);
 
-	fInDirectConnect = true;
+	fInDirectConnected = true;
 	DirectConnected(fBufferDesc);
-	fInDirectConnect = false;
+	fInDirectConnected = false;
 
 	if (fBackingSurface != NULL) {
 		cairo_surface_mark_dirty(fBackingSurface);

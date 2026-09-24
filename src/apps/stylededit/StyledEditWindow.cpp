@@ -1002,7 +1002,6 @@ StyledEditWindow::PageSetup(const char* documentName)
 	}
 
 	return result;
-	return B_OK;
 }
 
 

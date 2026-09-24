@@ -145,7 +145,7 @@ private:
 			bool				fConnectionEnable;
 			bool				fIsFullScreen;
 			bool				_unused;
-			bool				fInDirectConnect;
+			bool				fInDirectConnected;
 			int32				fDirectLock;
 			sem_id				fDirectSem;
 			uint32				fDirectLockCount;
@@ -159,8 +159,6 @@ private:
 
 			uint32				_reserved[2];
 
-			area_id				fClonedClippingArea;
-			area_id				fSourceClippingArea;
 			thread_id			fDirectDaemonId;
 			direct_buffer_info*	fBufferDesc;
 
