@@ -10,6 +10,8 @@
 #include <stdlib.h>
 #include <string.h>
 
+#define BACKEND_DEBUG	0
+
 // Platform-specific library loading
 #ifdef _WIN32
 	#include <windows.h>
@@ -110,13 +112,17 @@ CosmoeBackendFactory::DetectBackend()
 	// Auto-detect based on environment (Linux)
 	// Try Wayland first (modern default)
 	if (getenv("WAYLAND_DISPLAY") != NULL) {
-		printf("CosmoeBackendFactory: Detected Wayland environment\n");
+#if BACKEND_DEBUG
+		fprintf(stderr, "CosmoeBackendFactory: Detected Wayland environment\n");
+#endif
 		return BACKEND_WAYLAND;
 	}
 
 	// Fall back to X11
 	if (getenv("DISPLAY") != NULL) {
-		printf("CosmoeBackendFactory: Detected X11 environment\n");
+#if BACKEND_DEBUG
+		fprintf(stderr, "CosmoeBackendFactory: Detected X11 environment\n");
+#endif
 		return BACKEND_X11;
 	}
 
@@ -130,7 +136,7 @@ CosmoeBackendFactory::DetectBackend()
 	}
 
 	// Default to Wayland if nothing else works
-	printf("CosmoeBackendFactory: No windowing environment detected, defaulting to Wayland\n");
+	fprintf(stderr, "CosmoeBackendFactory: No windowing environment detected, defaulting to Wayland\n");
 	return BACKEND_WAYLAND;
 }
 
@@ -210,8 +216,7 @@ CosmoeBackendFactory::LoadBackend(backend_type type)
 			fullLibName, GetLastError());
 		ShowWindowsError(errorMsg);
 #else
-		fprintf(stderr, "CosmoeBackendFactory: Failed to load %s: %s\n",
-			fullLibName, LIB_ERROR());
+		fprintf(stderr, "CosmoeBackendFactory: Failed to load %s: %s\n", fullLibName, LIB_ERROR());
 #endif
 		return NULL;
 	}
@@ -242,14 +247,17 @@ CosmoeBackendFactory::LoadBackend(backend_type type)
 #ifdef _WIN32
 		ShowWindowsError("Backend creation function returned NULL\n\nThe backend failed to initialize.");
 #else
-		fprintf(stderr, "CosmoeBackendFactory: Backend creation function returned NULL\n");
+		fprintf(stderr, "CosmoeBackendFactory: Unable to load %s backend\n", backend->GetName());
 #endif
 		LIB_CLOSE(fBackendLibHandle);
 		fBackendLibHandle = NULL;
 		return NULL;
 	}
 
+#if BACKEND_DEBUG
 	printf("CosmoeBackendFactory: Successfully loaded %s backend\n", backend->GetName());
+#endif
+	
 	return backend;
 }
 
@@ -277,7 +285,9 @@ CosmoeBackendFactory::GetBackend(backend_type type)
 	}
 
 	// Try to load the requested backend
+#if BACKEND_DEBUG
 	fprintf(stderr, "CosmoeBackendFactory: Attempting to load backend type %d\n", targetType);
+#endif
 	fCurrentBackend = LoadBackend(targetType);
 	if (fCurrentBackend != NULL)
 		return fCurrentBackend;
