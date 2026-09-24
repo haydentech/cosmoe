@@ -682,6 +682,28 @@ process_inotify_event(const struct inotify_event* event)
 			}
 			pthread_mutex_unlock(&sNodeMonitorLock);
 
+			if (hasMove) {
+				// A paired move must notify watchers of both directories.
+				// Otherwise the source directory retains a stale pose when
+				// the destination is also being monitored.
+				node_monitor_watch sourceWatch{};
+				sourceWatch.wd = -1;
+				copy_watch_state(move.wd, sourceWatch);
+				if (sourceWatch.wd >= 0) {
+					for (const node_monitor_target& sourceTarget : sourceWatch.targets) {
+						auto target = std::find_if(targets.begin(), targets.end(),
+							[&sourceTarget](const node_monitor_target& destinationTarget) {
+								return target_matches(destinationTarget, sourceTarget.port,
+									sourceTarget.handlerToken);
+							});
+						if (target == targets.end())
+							targets.push_back(sourceTarget);
+						else
+							target->flags |= sourceTarget.flags;
+					}
+				}
+			}
+
 			for (const node_monitor_target& target : targets) {
 				if (hasMove)
 					send_entry_moved(target, move, watch, name.c_str(), child);

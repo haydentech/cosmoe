@@ -482,10 +482,8 @@ DownloadProgressView::MessageReceived(BMessage* message)
 					dev_t device;
 					ino_t directory;
 					const char* name;
-					if (message->FindInt32("device",
-							reinterpret_cast<int32*>(&device)) != B_OK
-						|| message->FindInt64("to directory",
-							reinterpret_cast<int64*>(&directory)) != B_OK
+					if (message->FindDevice("device", &device) != B_OK
+						|| message->FindInode("to directory", &directory) != B_OK
 						|| message->FindString("name", &name) != B_OK
 						|| strlen(name) == 0) {
 						break;

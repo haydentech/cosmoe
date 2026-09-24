@@ -132,8 +132,8 @@ BTrashWatcher::MessageReceived(BMessage* message)
 			// but do nothing for moves in the same directory
 			ino_t toDir;
 			ino_t fromDir;
-			message->FindInt64("from directory", (int64*)&fromDir);
-			message->FindInt64("to directory", (int64*)&toDir);
+			message->FindInode("from directory", &fromDir);
+			message->FindInode("to directory", &toDir);
 			if (fromDir == toDir)
 				break;
 		}
