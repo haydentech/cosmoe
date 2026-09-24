@@ -5955,6 +5955,8 @@ BPoseView::AttributeChanged(const BMessage* message)
 	const char* attrName;
 	if (message->FindString("attr", &attrName) != B_OK)
 		attrName = NULL;
+	bool unknownAttributeChange = attrName == NULL
+		&& message->GetInt32("opcode", 0) == B_ATTR_CHANGED;
 
 	Model* targetModel = TargetModel();
 	if (ContainerWindow()->ShouldHaveDraggableFolderIcon() && targetModel != NULL
@@ -6038,6 +6040,11 @@ BPoseView::AttributeChanged(const BMessage* message)
 			if (strcmp(attrName, kAttrMIMEType) == 0)
 				RefreshMimeTypeList();
 		} else {
+			// Sometime we get an attribute change notification that doesn't specify which
+			// attribute changed. Refresh the icon cache, since it may have been an icon attribute.
+			if (unknownAttributeChange && visible)
+				pose->UpdateIcon(poseLoc, this);
+
 			// update stat
 			pose->UpdateWidgetAndModel(0, 0, index, poseLoc, this, visible);
 		}

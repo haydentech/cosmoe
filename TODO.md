@@ -106,6 +106,8 @@
 
 - Opening a menu can occasionally cause a crash (Wayland)
 
+- When resizing windows, occasionally the window content will go transparent for an instant (Wayland)
+
 - `ColumnListView` column resizing has slight redraw issues (Mac, Wayland HiDPI)
   - This is related to `CopyBits` trying to copy "half" a logical pixel in hidpi mode
 
