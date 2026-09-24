@@ -102,7 +102,7 @@ TLauncherView::MessageReceived(BMessage* message)
 		}
 
 		case kAddShortcut:
-			OpenWithTracker(B_USER_DESKBAR_DIRECTORY);
+			OpenWithTracker(B_USER_DESKBAR_DIRECTORY, "shortcuts");
 			break;
 
 		default:
