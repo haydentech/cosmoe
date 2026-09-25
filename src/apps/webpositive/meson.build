@@ -262,7 +262,7 @@ PLIST
     if is_linux
         meson.add_install_script('sh', '-c', '''
             RSRC_FILE="''' + meson.current_build_dir() + '/' + app_name + '''.rsrc"
-            ICON_DIR="$DESTDIR/usr/local/share/icons"
+            ICON_DIR="$DESTDIR''' + dir_data + '''/icons"
             APP_NAME_LOWER="webpositive"
 
             "''' + meson.global_build_root() + '''/vicn2png" \

@@ -543,7 +543,7 @@ TBarWindow::SetDeskbarLocation(deskbar_location location, bool newExpandState)
 			break;
 	}
 
-	fBarView->ChangeState(expand, vertical, left, top);
+	fBarView->ChangeState(vertical, left, top, expand ? kExpandoState : kMiniState);
 	SetFlags(SetWindowPanelFlags(Flags(),
 		PanelPlacementForDeskbarLocation(location)));
 }
@@ -577,7 +577,7 @@ TBarWindow::Expand(BMessage* message)
 		bool vertical = fBarView->Vertical();
 		bool left = fBarView->Left();
 		bool top = fBarView->Top();
-		fBarView->ChangeState(expand, vertical, left, top);
+		fBarView->ChangeState(vertical, left, top, expand ? kExpandoState : kMiniState);
 	}
 }
 
@@ -775,10 +775,6 @@ TBarWindow::SetSizeLimits()
 		float maxHeight;
 		float minWidth;
 		float maxWidth;
-		float preferredWidth;
-		float preferredHeight;
-		fBarView->GetPreferredWindowSize(screenFrame, &preferredWidth,
-			&preferredHeight);
 
 		if (fBarView->Vertical()) {
 			minHeight = fBarView->TabHeight() - 1;
@@ -786,6 +782,11 @@ TBarWindow::SetSizeLimits()
 			minWidth = gMinimumWindowWidth;
 			maxWidth = gMaximumWindowWidth;
 		} else {
+			float preferredWidth;
+			float preferredHeight;
+			fBarView->GetPreferredWindowSize(screenFrame, &preferredWidth,
+				&preferredHeight);
+
 			// horizontal
 			if (fBarView->MiniState()) {
 				// horizontal mini-mode

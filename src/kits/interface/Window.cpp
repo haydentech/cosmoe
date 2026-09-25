@@ -1640,8 +1640,11 @@ window_move_handler(cosmoe_window_t _window, int32_t x, int32_t y, void* user_da
 
 	const char* backendName = cosmoe_backend_get_current_name();
 	if (backendName && strcmp(backendName, "Wayland") == 0) {
-		x = 0;
-		y = 0;
+		// Wayland does not provide global window coordinates. Posting a
+		// synthetic move to (0, 0) corrupts the logical screen frame used by
+		// ConvertToScreen(), notably for layer-shell panels and their menus.
+		_RefreshWindowDisplayScale(win);
+		return;
 	}
 
 	_RefreshWindowDisplayScale(win);
@@ -3792,6 +3795,13 @@ BWindow::MoveTo(float x, float y)
 		// Standalone popup on non-Wayland backends: use absolute coordinates.
 		fPopupPosition.Set(x, y);
 		if (fFrame.left != x || fFrame.top != y)
+			fFrame.OffsetTo(x, y);
+	}
+
+	// A Wayland panel is positioned by its layer-shell anchors, but views and
+	// menus still use this logical frame for screen-coordinate conversion.
+	if (isWayland && fParentWindow == NULL && WindowIsPanel(fFlags)
+		&& (fFrame.left != x || fFrame.top != y)) {
 			fFrame.OffsetTo(x, y);
 	}
 
@@ -6022,7 +6032,10 @@ BWindow::_SendShowOrHideMessage()
 		// Send AS_WINDOW_SHOW one-way with all handler pointers. The BMP will:
 		//   - set all widget and window handlers
 		//   - schedule resize, show the window
-		void* frameResizeFn = (!fOffscreen && fFeel != kMenuWindowFeel)
+		// Menu popups also need resize notifications: Wayland can constrain an
+		// xdg_popup's height to fit the output, which lets BMenu attach its
+		// existing scroll controls for the reduced viewport.
+		void* frameResizeFn = !fOffscreen
 			? (void*)windowframe_resize_handler : nullptr;
 
 		{

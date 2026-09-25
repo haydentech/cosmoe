@@ -1,4 +1,4 @@
-# Font installation for macOS
+# Font installation
 if is_darwin
     # Get list of all TrueType fonts
     font_files = run_command('sh', '-c', 'cd ttfonts && ls *.ttf', check: true).stdout().strip().split('\n')
@@ -30,4 +30,13 @@ if is_darwin
         
         echo "Installed ''' + font_files.length().to_string() + ''' fonts to ${FONT_DIR}"
     ''')
+endif
+
+# Linux fontconfig scans /usr/share/fonts. Install Cosmoe's bundled fonts
+if is_linux
+    install_subdir(
+        'ttfonts',
+        install_dir: join_paths(get_option('datadir'), 'fonts', 'ttf', 'cosmoe'),
+        strip_directory: true,
+    )
 endif

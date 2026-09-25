@@ -47,6 +47,7 @@
 #include <Directory.h>
 #include <Entry.h>
 #include <File.h>
+#include <FindDirectory.h>
 #include <Message.h>
 #include <MessageRunner.h>
 #include <Path.h>
@@ -1155,7 +1156,9 @@ IconView::IconView(BRect rect, uint32 followFlags)
 		std::string fullPath = std::string("./") + name;
 		std::string resourcePath = std::string("./") + name;
 #ifdef __linux__
-		fullPath = std::string("/usr/local/bin/") + name;
+		BPath systemBinDirectory;
+		if (find_directory(B_SYSTEM_BIN_DIRECTORY, &systemBinDirectory) == B_OK)
+			fullPath = std::string(systemBinDirectory.Path()) + "/" + name;
 		resourcePath = fullPath;
 #elif __APPLE__
 		fullPath = std::string("/usr/local/Applications/") + name + ".app";

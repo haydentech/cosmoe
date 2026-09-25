@@ -1531,8 +1531,11 @@ run_be_about()
 		const char* path = "/usr/local/Applications/AboutSystem.app";
 		execl("/usr/bin/open", "open", path, (char*)nullptr);
 #else
-		const char* path = "/usr/local/bin/AboutSystem";
-        execl(path, path, (char*)nullptr);
+		BPath path;
+		if (find_directory(B_SYSTEM_BIN_DIRECTORY, &path) == B_OK
+			&& path.Append("AboutSystem") == B_OK) {
+			execl(path.Path(), path.Path(), (char*)nullptr);
+		}
 #endif
         _exit(1);
     }

@@ -1,0 +1,12 @@
+[terminal]
+vt = 7
+
+# Start the Cosmoe desktop automatically. If it exits, agreety provides a
+# text-mode recovery login on the same virtual terminal.
+[default_session]
+command = "agreety --cmd /bin/bash"
+user = "greeter"
+
+[initial_session]
+command = "/usr/bin/cosmoe-desktop.sh"
+user = "cosmoe"

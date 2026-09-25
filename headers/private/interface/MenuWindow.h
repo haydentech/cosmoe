@@ -28,6 +28,7 @@ public:
 
 	virtual	void			DispatchMessage(BMessage* message,
 								BHandler* handler);
+	virtual	void			FrameResized(float width, float height);
 
 			void			AttachMenu(BMenu* menu);
 			void			DetachMenu();

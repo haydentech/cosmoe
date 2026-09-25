@@ -1598,7 +1598,7 @@ TDragRegion::SwitchModeForRegion(BPoint where, BRegion region,
 		return true;
 	}
 
-	fBarView->ChangeState(newVertical, newLeft, newTop, newState, true);
+	fBarView->ChangeState(newState, newVertical, newLeft, newTop, true);
 
 	return true;
 }

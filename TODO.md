@@ -8,6 +8,8 @@
 - Modal alerts are not fully modal on Wayland
   - The alert stays frontmost, but input will still be processed in the parent window.
 
+- After some recent graphics optimization, blinking text cursors no longer appear
+
 - `B_CMAP8` (and a few others) are not valid color spaces for drawing
   - This is due to lack of support in Cairo for these color spaces.
   - Should we auto-upgrade these color spaces to `B_RGB32` at `BBitmap` creation to avoid issues, or would this just cause new ones as apps try to insert 8-bit bitmap data?
@@ -75,21 +77,19 @@
   - NodeInfo tests still have a failing test regarding tracker icons
 
 - Tracker/libtracker/Deskbar bugs
-  - "Get Info" on a file can sometimes hang Tracker
+  - "Get Info" on a file can sometimes hang Tracker (haven't seen this in a while)
   - Dragging a file/folder to a new location in the window moves it in the fs, but it still shows in the original location until you refresh
   - Dragging a file/folder to a new window (e.g. to copy/move it to a new location) does not work
   - "Open With" always shows an empty menu
   - Tracker menus are layered behind the Deskbar on Wayland
-  - Tracker errors when you attempt to move an item to the trash
-    - if you persist and ask Tracker to delete immediately, it crashes
   - Error on startup: "FlatIconImporter::_ParseSections() - error parsing shapes: Unknown error -1"
     - This is due to a malformed Person vector icon in Haiku
   - If you open an Open File Panel a second time after having opened a file the first time, it locks up the window (and the app)
     - Save panel doesn't do that though
-	- If you cancel, you can open as many Open panels as you want, it's only when you really open a file that it happens
+	  - If you cancel, you can open as many Open panels as you want, it's only when you really open a file that it happens
   - Drag selecting often leaves a small amount of stale pixels behind from the selection rectangle
   - Resizing the columns on open/save panels produces graphical artifacts and/or shows through to the window below
-  - If you empty the trash, it succeeds, but the trash icon does not change
+  - Certain Deskbar placements that should put Deskbar in the corner of the screen position it away from the corner horizontally
 
 
 ## Historical Bugs -- not specifically fixed, but haven't been seen in a long time, so may be fixed by another change
@@ -104,7 +104,7 @@
 
 ## Platform-Specific Bugs
 
-- Opening a menu can occasionally cause a crash (Wayland)
+- Opening a menu can occasionally cause a crash, though haven't seen this in a while (Wayland)
 
 - When resizing windows, occasionally the window content will go transparent for an instant (Wayland)
 
@@ -118,10 +118,12 @@
 
 - File panel file listing background color is white on Linux and Windows, but gray on Mac
 
-- Deskbar can't activate running apps on Windows
+- Deskbar can't activate running apps (Windows)
 
-- Deskbar doesn't support closing an app's window(s) on Mac or Windows
+- Deskbar doesn't support closing an app's window(s) (Mac or Windows)
   - The larger issue is that we don't yet have a way to deliver BMessages across apps on those platforms
+
+- StyledEdit crashes on exit (Wayland)
 
 
 ## Cosmoe porting notes
