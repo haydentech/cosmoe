@@ -6035,11 +6035,14 @@ BView::InvertRect(BRect rect)
 	cairo_rectangle(cr, rect.left - 0.5, rect.top - 0.5, rect.Width() + 1, rect.Height() + 1);
 	cairo_set_operator(cr, CAIRO_OPERATOR_DIFFERENCE);
 	cairo_set_source_rgb (cr, 1., 1., 1.);
-	cr.Fill();
-		BRect windowRect = ConvertToWindow(rect);
-		pthread_mutex_lock(&fOwner->fBackingSurfaceLock);
-		fOwner->fBackingSurfaceDirtyRegion.Include(windowRect);
-		pthread_mutex_unlock(&fOwner->fBackingSurfaceLock);
+	// Do not use CairoContext::Fill(): it changes B_OP_COPY to OVER, which
+	// would paint a white caret instead of applying the DIFFERENCE operator.
+	cairo_fill(cr);
+	
+	BRect windowRect = ConvertToWindow(rect);
+	pthread_mutex_lock(&fOwner->fBackingSurfaceLock);
+	fOwner->fBackingSurfaceDirtyRegion.Include(windowRect);
+	pthread_mutex_unlock(&fOwner->fBackingSurfaceLock);
 	
 	// This redraw allows the insertion cursor to be redrawn correctly,
 	// but I'm not sure this is the right way to handle this.
@@ -6051,7 +6054,7 @@ BView::InvertRect(BRect rect)
 			BEGIN_MESSAGE
 			fLink->StartMessage(AS_FORCE_UPDATE);
 			fLink->Attach<int32_t>(fOwner->fWindowToken);
-				fLink->Attach<BRect>(windowRect);
+			fLink->Attach<BRect>(windowRect);
 			fLink->Flush();
 		}
 	}
