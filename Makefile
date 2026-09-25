@@ -81,6 +81,19 @@ deb:
 	mv ../cosmoe*.deb debian/packages/
 endif
 
+# Build a NoCloud seed ISO for a minimal Ubuntu Cosmoe test installation.
+# The image script stages only the runtime packages produced by `make deb`.
+image: deb
+	@hash="$${COSMOE_PASSWORD_HASH:-}"; \
+	if [ -z "$$hash" ]; then \
+		command -v openssl >/dev/null 2>&1 || { \
+			echo "openssl is required to generate the development image password hash." >&2; \
+			exit 1; \
+		}; \
+		hash="$$(openssl passwd -6 cosmoe)"; \
+	fi; \
+	COSMOE_PASSWORD_HASH="$$hash" bash image/build-seed.sh
+
 # Windows cross-compilation using MXE on Linux or WSL
 windows:
 	@echo "Building native rc-bootstrap for cross-compilation..."
@@ -101,4 +114,4 @@ windows-clean:
 	rm -rf win-test
 	@echo "Windows build directory and win-test directory removed"
 
-.PHONY: build configure install clean distclean deb windows windows-clean
+.PHONY: build configure install clean distclean deb image windows windows-clean

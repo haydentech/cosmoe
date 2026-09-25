@@ -5,3 +5,4 @@ usr/lib/*/libcosmoe-*.so
 usr/lib/*/libgame.so
 usr/lib/*/libtracker.so
 usr/share/cosmoe/
+usr/share/fonts/ttf/cosmoe/

@@ -353,6 +353,25 @@ BMenuWindow::DispatchMessage(BMessage *message, BHandler *handler)
 
 
 void
+BMenuWindow::FrameResized(float width, float height)
+{
+	BWindow::FrameResized(width, height);
+
+	if (fMenu == NULL || fMenuFrame == NULL
+		|| fMenu->fLayout != B_ITEMS_IN_COLUMN) {
+		return;
+	}
+
+	if (fMenu->Bounds().Height() > Bounds().Height()) {
+		if (!HasScrollers())
+			AttachScrollers();
+	} else if (HasScrollers()) {
+		DetachScrollers();
+	}
+}
+
+
+void
 BMenuWindow::AttachMenu(BMenu *menu)
 {
 	if (fMenuFrame)

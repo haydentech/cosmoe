@@ -1,0 +1,57 @@
+#cloud-config
+autoinstall:
+  version: 1
+
+  # This ID is provided by Ubuntu Server installation media. Verify it against
+  # casper/install-sources.yaml when changing the Ubuntu release or ISO.
+  source:
+    id: ubuntu-server-minimal
+
+  locale: en_US.UTF-8
+  keyboard:
+    layout: us
+
+  identity:
+    realname: Cosmoe
+    hostname: cosmoe
+    username: cosmoe
+    # Replaced by build-seed.sh; Autoinstall requires an encrypted password.
+    password: "__COSMOE_PASSWORD_HASH__"
+
+  ssh:
+    install-server: true
+    allow-pw: true
+
+  # These are deliberately limited to the session stack and basic
+  # administration. Do not add an Ubuntu desktop task or desktop environment.
+  packages:
+    - dbus-user-session
+    - dbus-x11
+    - greetd
+    - labwc
+    - mako-notifier
+    - mesa-utils
+    - network-manager
+    - openssh-server
+    - pipewire
+    - policykit-1-gnome
+    - wireplumber
+    - vim-tiny
+    - xdg-desktop-portal
+    - xdg-desktop-portal-wlr
+    - xcursor-themes
+    - xwayland
+
+  late-commands:
+    # The seed ISO is labelled CIDATA so NoCloud can find user-data. Mount it
+    # explicitly to obtain the local Cosmoe packages and image configuration.
+    - mkdir -p /run/cosmoe-seed /target/var/tmp/cosmoe-debs
+    - mount -o ro -L CIDATA /run/cosmoe-seed
+    - cp -a /run/cosmoe-seed/files/. /target/
+    - cp -a /run/cosmoe-seed/packages/. /target/var/tmp/cosmoe-debs/
+    - 'curtin in-target -- /bin/sh -c "apt-get install -y /var/tmp/cosmoe-debs/cosmoe_*.deb /var/tmp/cosmoe-debs/cosmoe-apps_*.deb"'
+    - 'curtin in-target -- /bin/sh -c "getent passwd greeter >/dev/null || adduser --system --group --home /var/lib/greetd --shell /usr/sbin/nologin greeter"'
+    - 'curtin in-target -- install -d -o greeter -g greeter -m 0755 /var/lib/greetd'
+    - curtin in-target -- systemctl enable greetd.service
+
+  shutdown: poweroff

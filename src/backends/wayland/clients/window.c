@@ -2012,7 +2012,6 @@ create_cursors(struct display *display)
 		fprintf(stderr, "could not load theme '%s'\n", theme);
 		return;
 	}
-	free(theme);
 	display->cursors =
 		xmalloc(ARRAY_LENGTH(cursors) * sizeof display->cursors[0]);
 
@@ -7529,8 +7528,14 @@ window_popup_create(struct display *display, struct window *parent_window, int x
 		xdg_positioner_set_anchor(positioner, XDG_POSITIONER_ANCHOR_TOP_LEFT);
 		xdg_positioner_set_gravity(positioner, XDG_POSITIONER_GRAVITY_BOTTOM_RIGHT);
 	}
+	/* Wayland does not expose a toplevel's global position, so the Interface
+	 * Kit cannot reliably clip menus in screen coordinates. Let the compositor
+	 * flip or slide the popup into the available vertical space and constrain
+	 * its height when necessary. */
 		xdg_positioner_set_constraint_adjustment(positioner,
-			XDG_POSITIONER_CONSTRAINT_ADJUSTMENT_NONE);
+		XDG_POSITIONER_CONSTRAINT_ADJUSTMENT_FLIP_Y
+		| XDG_POSITIONER_CONSTRAINT_ADJUSTMENT_SLIDE_Y
+		| XDG_POSITIONER_CONSTRAINT_ADJUSTMENT_RESIZE_Y);
 
 	/* Create xdg_popup (like window_show_menu does) */
 	window->xdg_popup = xdg_surface_get_popup(window->xdg_surface,
@@ -8000,7 +8005,9 @@ create_simple_positioner(struct display *display,
 	xdg_positioner_set_gravity(positioner,
 				   XDG_POSITIONER_GRAVITY_BOTTOM_RIGHT);
 	xdg_positioner_set_constraint_adjustment(positioner,
-					 XDG_POSITIONER_CONSTRAINT_ADJUSTMENT_NONE);
+		XDG_POSITIONER_CONSTRAINT_ADJUSTMENT_FLIP_Y
+		| XDG_POSITIONER_CONSTRAINT_ADJUSTMENT_SLIDE_Y
+		| XDG_POSITIONER_CONSTRAINT_ADJUSTMENT_RESIZE_Y);
 
 	return positioner;
 }
@@ -9450,11 +9457,11 @@ display_destroy(struct display *display)
 	struct popup_callback_data *popup_callback_data, *popup_callback_data_tmp;
 
 	if (!wl_list_empty(&display->window_list))
-		fprintf(stderr, "toytoolkit warning: %d windows exist.\n",
+		fprintf(stderr, "wayland warning: %d windows exist.\n",
 			wl_list_length(&display->window_list));
 
 	if (!wl_list_empty(&display->deferred_list))
-		fprintf(stderr, "toytoolkit warning: deferred tasks exist.\n");
+		fprintf(stderr, "wayland warning: deferred tasks exist.\n");
 
 	if (display->dummy_surface)
 		cairo_surface_destroy(display->dummy_surface);
@@ -9673,7 +9680,7 @@ display_run(struct display *display)
 
 	// Set up a pipe to allow us to break out of the event loop and transfer data
 	if (pipe(efd_pipe) == -1) {
-		printf("pipe creation failed: %s\n", strerror(errno));
+		fprintf(stderr, "pipe creation failed: %s (%d)\n", strerror(errno), errno);
 	}
 
 	// Make read end non-blocking
@@ -9687,7 +9694,7 @@ display_run(struct display *display)
 
 	int ret2 = epoll_ctl(display->epoll_fd, EPOLL_CTL_ADD, efd_pipe[0], &event);
 	if (ret2 == -1) {
-		printf("epoll_ctl failed: %s\n", strerror(errno));
+		fprintf(stderr, "epoll_ctl failed: %s (%d)\n", strerror(errno), errno);
 	}
 
 	display->running = 1;
@@ -9742,7 +9749,7 @@ display_run(struct display *display)
 			ret = wl_display_dispatch_pending(display->display);
 			run_deferred_tasks(display);
 			if (ret == -1) {
-				printf("wl_display_dispatch_pending failed -- exiting loop\n");
+				fprintf(stderr, "wl_display_dispatch_pending failed -- exiting loop\n");
 				break;
 			}
 		}
@@ -9755,7 +9762,6 @@ display_run(struct display *display)
 		if (!display->running) {
 			if (prepared_read)
 				wl_display_cancel_read(display->display);
-			printf("Display is not running -- exiting loop\n");
 			break;
 		}
 
@@ -9770,7 +9776,7 @@ display_run(struct display *display)
 		} else if (ret < 0) {
 			if (prepared_read)
 				wl_display_cancel_read(display->display);
-			printf("exiting 3\n");
+			fprintf(stderr, "wl_display_flush failure: %s (%d)\n", strerror(errno), errno);
 			break;
 		}
 
@@ -9793,7 +9799,7 @@ display_run(struct display *display)
 					payload p;
 					ssize_t s = read(efd_pipe[0], &p, sizeof(payload));
 					if (s != sizeof(payload)) {
-						printf("pipe read failed or incomplete: %zd (expected %zu)\n", s, sizeof(payload));
+						fprintf(stderr, "pipe read failed or incomplete: %zd (expected %zu)\n", s, sizeof(payload));
 					} else {
 						if (p.wid != NULL)
 							widget_schedule_redraw(p.wid);

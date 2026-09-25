@@ -38,6 +38,8 @@ Rules-Requires-Root: no
 Package: cosmoe
 Architecture: any
 Depends:
+ adwaita-icon-theme,
+ xcursor-themes,
  ${shlibs:Depends},
  ${misc:Depends}
 Description: BeOS-compatible C++ application framework
