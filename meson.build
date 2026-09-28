@@ -885,8 +885,17 @@ install_data(
 
 # Cosmoe desktop support for Wayland on Linux
 if is_linux
+    cosmoe_desktop_conf = configuration_data()
+    cosmoe_desktop_conf.set('COSMOE_DESKTOP_EXEC',
+        dir_bin / 'cosmoe-desktop.sh')
+    cosmoe_desktop_entry = configure_file(
+        input: 'cosmoe.desktop.in',
+        output: 'cosmoe.desktop',
+        configuration: cosmoe_desktop_conf,
+    )
+
     install_data(
-        'cosmoe.desktop',
+        cosmoe_desktop_entry,
         install_dir: '/usr/share/wayland-sessions',
     )
 
