@@ -2574,18 +2574,23 @@ BRoster::_TranslateRef(entry_ref* ref, BMimeType* appMeta,
 		// don't worry, if the file doesn't have a signature, just
 		// unset the supplied object
 		char type[B_MIME_TYPE_LENGTH];
+		bool hasApplicationSignature = false;
 		if (appFileInfo.GetSignature(type) == B_OK) {
 			error = appMeta->SetTo(type);
 			if (error != B_OK)
 				return error;
+			hasApplicationSignature = true;
 		} else
 			appMeta->Unset();
 
-		// If the file type indicates that the file is an application, we've
-		// definitely got what we're looking for.
+		// A Be application signature identifies an executable as an
+		// application even when its host MIME database only reports a
+		// generic executable type. Without this, Launch(&appRef) forwards
+		// the application executable to itself as a document.
 		bool isDocument = true;
-		if (_GetFileType(ref, &appFileInfo, type) == B_OK
-			&& strcasecmp(type, B_APP_MIME_TYPE) == 0) {
+		if (hasApplicationSignature
+			|| (_GetFileType(ref, &appFileInfo, type) == B_OK
+			&& strcasecmp(type, B_APP_MIME_TYPE) == 0)) {
 			isDocument = false;
 		}
 

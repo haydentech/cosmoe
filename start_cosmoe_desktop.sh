@@ -12,6 +12,9 @@
 
 set -euo pipefail
 
+# Clean up any stale Tracker and Deskbar instances that might be running
+killall Tracker Deskbar 2>/dev/null || true
+
 if ! command -v labwc >/dev/null 2>&1; then
     install_hint="Install labwc using your distribution's package manager"
 
