@@ -52,6 +52,7 @@
 #include <Window.h>
 
 #include <binary_compatibility/Interface.h>
+#include <private/interface/WindowPrivate.h>
 
 #include "InlineInput.h"
 #include "LineBuffer.h"
@@ -854,7 +855,8 @@ BTextView::MakeFocus(bool focus)
 {
 	BView::MakeFocus(focus);
 
-	if (focus && Window() != NULL && Window()->IsActive()) {
+	if (focus && Window() != NULL && (Window()->IsActive()
+		|| Window()->Feel() == kDesktopWindowFeel)) {
 		if (!fActive)
 			_Activate();
 	} else {

@@ -598,13 +598,16 @@ BTextWidget::StopEdit(bool saveChanges, BPoint poseLoc, BPoseView* view,
 		view->CheckPoseSortOrder(pose, poseIndex);
 	}
 
+	// Cosmoe Fix: edit frame was not being included in the invalidation region
+	BRect editFrame = scrollView->Frame();
+
 	// make text widget visible again
 	SetVisible(true);
-	view->Invalidate(ColumnRect(poseLoc, column, view));
 
 	// force immediate redraw so TEView disappears
 	scrollView->RemoveSelf();
 	delete scrollView;
+	view->Invalidate(ColumnRect(poseLoc, column, view) | editFrame);
 
 	ASSERT(view->Window() != NULL);
 	view->Window()->UpdateIfNeeded();

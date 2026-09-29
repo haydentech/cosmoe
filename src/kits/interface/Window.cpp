@@ -6093,6 +6093,10 @@ void BWindow::_UpdateFrame()
 	if (fWindowToken == B_NULL_TOKEN)
 		return;
 
+	const char* backendName = cosmoe_backend_get_current_name();
+	if (backendName != NULL && strcmp(backendName, "Wayland") == 0)
+		return;
+
 	int32_t x = 0;
 	int32_t y = 0;
 	BEGIN_MESSAGE
