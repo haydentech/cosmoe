@@ -109,6 +109,9 @@ public:
 	void SelectPoseAtLocationSoon(node_ref parent, BPoint location);
 		// Used to select next item when deleting in list view mode
 
+	void NotifyEntryMoved(const entry_ref& oldRef, const node_ref& node);
+		// Updates Tracker windows after a successful move.
+
 	enum OpenSelector {
 		kOpen,
 		kOpenWith,
