@@ -707,7 +707,7 @@ cleanup_after_cairo(void)
 #ifdef HAVE_PANGO
 	pango_cairo_font_map_set_default(NULL);
 #endif
-	cairo_debug_reset_static_data();
+	//cairo_debug_reset_static_data();
 #ifdef HAVE_PANGO
 	FcFini();
 #endif

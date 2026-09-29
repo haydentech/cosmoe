@@ -5788,7 +5788,16 @@ window_schedule_resize(struct window *window, int width, int height)
 {
 	/* Maintain the 1-pixel difference between what BeOS/Haiku expects
 		and what X11 expects regarding window size */
-	window_configure_resize(window, width + 1, height + 1);
+	if (window->layer_surface != NULL) {
+		/* Layer-shell configures report the requested surface dimensions
+		 * directly. Adding the X11 compatibility pixel here makes a panel
+		 * save the compositor's reply as a one-pixel-larger requested size,
+		 * causing resizable panels such as Deskbar to grow on each configure
+		 * round trip. */
+		window_configure_resize(window, width, height);
+	} else
+		window_configure_resize(window, width + 1, height + 1);
+
 	if (window->layer_surface != NULL) {
 		if (window->desktop_mode)
 			window_apply_desktop_state(window);
@@ -7532,7 +7541,7 @@ window_popup_create(struct display *display, struct window *parent_window, int x
 	 * Kit cannot reliably clip menus in screen coordinates. Let the compositor
 	 * flip or slide the popup into the available vertical space and constrain
 	 * its height when necessary. */
-		xdg_positioner_set_constraint_adjustment(positioner,
+	xdg_positioner_set_constraint_adjustment(positioner,
 		XDG_POSITIONER_CONSTRAINT_ADJUSTMENT_FLIP_Y
 		| XDG_POSITIONER_CONSTRAINT_ADJUSTMENT_SLIDE_Y
 		| XDG_POSITIONER_CONSTRAINT_ADJUSTMENT_RESIZE_Y);
