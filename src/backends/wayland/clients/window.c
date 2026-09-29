@@ -70,6 +70,7 @@
 #include "matrix.h"
 
 enum {
+	COSMOE_WINDOW_FLAG_NOT_MOVABLE = 0x00000001,
 	COSMOE_WINDOW_FLAG_NOT_RESIZABLE = 0x00000002,
 	COSMOE_WINDOW_FLAG_NOT_CLOSABLE = 0x00000020,
 	COSMOE_WINDOW_FLAG_NOT_ZOOMABLE = 0x00000040
@@ -765,6 +766,8 @@ struct window {
 	struct wl_list delete_link;
 	void (*move_handler)(struct window* window, int x, int y, void* user_data);
 	void *move_user_data;
+	void (*move_start_handler)(struct window* window, void* user_data);
+	void *move_start_user_data;
 
 	int32_t token;  /* BWindow object token for PortLink window identification */
 	struct widget *topview_widget;
@@ -838,6 +841,11 @@ struct input {
 	struct wl_list touch_point_list;
 	struct window *pointer_focus;
 	struct window *keyboard_focus;
+	/* Toplevel that lost keyboard focus while the pointer was already
+	 * outside every client surface. Cleared if focus returns before the
+	 * pending queue is drained. A server-side titlebar drag does this;
+	 * hovering the titlebar does not, because keyboard focus stays. */
+	struct window *menu_dismiss_window;
 	struct window *touch_focus;
 	struct window *locked_window;
 	struct window *confined_window;
@@ -2511,6 +2519,8 @@ window_destroy(struct window *window)
 			input->pointer_focus = NULL;
 		if (input->keyboard_focus == window)
 			input->keyboard_focus = NULL;
+		if (input->menu_dismiss_window == window)
+			input->menu_dismiss_window = NULL;
 		if (input->locked_window == window)
 			input->locked_window = NULL;
 		if (input->confined_window == window)
@@ -3583,10 +3593,15 @@ frame_handle_status(struct window_frame *frame, struct input *input,
 	}
 
 	if ((status & FRAME_STATUS_MOVE) && window->xdg_toplevel) {
+		/* Request the move before closing menus. Destroying the menu
+		 * popup first cancels this button press, so the drag never starts. */
 		input_ungrab(input);
 		xdg_toplevel_move(window->xdg_toplevel,
 				  input_get_seat(input),
 				  window->display->serial);
+		if (window->move_start_handler != NULL) {
+			window->move_start_handler(window, window->move_start_user_data);
+		}
 
 		frame_status_clear(frame->frame, FRAME_STATUS_MOVE);
 	}
@@ -4084,6 +4099,7 @@ pointer_handle_enter(void *data, struct wl_pointer *pointer,
 	input->display->serial = serial;
 	input->pointer_enter_serial = serial;
 	input->pointer_focus = window;
+	input->menu_dismiss_window = NULL;
 
 	/* Some compositors advertise wl_seat before wl_compositor. This
 	 * makes it potentially impossible to create the pointer surface
@@ -4515,6 +4531,7 @@ keyboard_handle_enter(void *data, struct wl_keyboard *keyboard,
 
 	input->display->serial = serial;
 	input->keyboard_focus = wl_surface_get_user_data(surface);
+	input->menu_dismiss_window = NULL;
 
 	window = input->keyboard_focus;
 	if (window->keyboard_focus_handler)
@@ -4527,9 +4544,17 @@ keyboard_handle_leave(void *data, struct wl_keyboard *keyboard,
 		      uint32_t serial, struct wl_surface *surface)
 {
 	struct input *input = data;
+	struct window *window = input->keyboard_focus;
 
 	input->display->serial = serial;
 	input_remove_keyboard_focus(input);
+
+	/* Remember the loss. display_run closes menus only if nothing of ours
+	 * is focused once this event batch is finished. Hovering a server-side
+	 * titlebar leaves the pointer but keeps the keyboard, so it does not
+	 * get here. Starting the drag clears the keyboard as well. */
+	if (window != NULL && window->move_start_handler != NULL)
+		input->menu_dismiss_window = window;
 }
 
 /* Translate symbols appropriately if a compose sequence is being entered */
@@ -7933,9 +7958,14 @@ xdg_popup_handle_popup_done(void *data, struct xdg_popup *xdg_popup)
 		menu_destroy(menu);
 		return;
 	}
-	
-	/* For non-menu popups (like tooltips), just ignore popup_done.
-	 * The tooltip manager will handle closing the window. */
+
+	/* Compositor dismissed a mapped menu. Tooltips hide themselves first,
+	 * so their later popup_done is ignored. */
+	if (!window->hidden
+		&& (window->cosmoe_flags & COSMOE_WINDOW_FLAG_NOT_MOVABLE)
+		&& window->move_start_handler != NULL) {
+		window->move_start_handler(window, window->move_start_user_data);
+	}
 }
 
 static const struct xdg_popup_listener xdg_popup_listener = {
@@ -8370,6 +8400,16 @@ window_set_move_handler(struct window *window, void (*handler)(struct window*, i
 		return;
 	window->move_handler = handler;
 	window->move_user_data = user_data;
+}
+
+void
+window_set_move_start_handler(struct window *window,
+	void (*handler)(struct window*, void*), void *user_data)
+{
+	if (!window)
+		return;
+	window->move_start_handler = handler;
+	window->move_start_user_data = user_data;
 }
 
 void *window_get_focus_user_data(struct window *window)
@@ -9678,6 +9718,30 @@ int efd_pipe[2] = {-1, -1};
 /* Defined in WaylandBackend.cpp, called from display_run */
 extern void wayland_process_backend_messages(int32_t backend_port, int32_t app_port);
 
+static void
+dismiss_open_menus_if_focus_left(struct display *display)
+{
+	struct input *input;
+
+	wl_list_for_each(input, &display->input_list, link) {
+		struct window *window = input->menu_dismiss_window;
+
+		if (window == NULL)
+			continue;
+
+		input->menu_dismiss_window = NULL;
+
+		/* Focus moved to another of our surfaces, or the pointer is
+		 * still over one. A titlebar hover keeps keyboard focus, and
+		 * a menu popup keeps pointer focus. */
+		if (input->keyboard_focus != NULL || input->pointer_focus != NULL)
+			continue;
+
+		if (window->move_start_handler != NULL)
+			window->move_start_handler(window, window->move_start_user_data);
+	}
+}
+
 void
 display_run(struct display *display)
 {
@@ -9762,6 +9826,10 @@ display_run(struct display *display)
 				break;
 			}
 		}
+
+		/* Leave and enter in one batch are both dispatched above.
+		 * Close menus only when focus did not come back. */
+		dismiss_open_menus_if_focus_left(display);
 
 		if (ret == -1)
 			break;

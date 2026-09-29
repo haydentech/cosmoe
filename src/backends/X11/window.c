@@ -197,6 +197,9 @@ struct window {
 	int mouse_x, mouse_y;
 	void (*move_handler)(struct window* window, int x, int y, void* user_data);
 	void *move_user_data;
+	void (*move_start_handler)(struct window* window, void* user_data);
+	void *move_start_user_data;
+	uint64_t last_move_start_ms;
 	widget_resize_handler_t resize_handler;		// In X11, the window itself needs a resize handler, as there is no windowframe widget
 	window_key_handler_t key_handler;
 	window_close_handler_t close_handler;
@@ -1433,6 +1436,21 @@ window_handle_configure_notify(struct window *window, XConfigureEvent *event)
 
 	/* Notify move handler if window position changed */
 	if (moved && window->move_handler) {
+		/* Popup placement also produces ConfigureNotify. Only a managed
+		 * window moving under the window manager should dismiss menus. */
+		if (!window->is_popup && window->move_start_handler) {
+			struct timespec now;
+			uint64_t now_ms;
+			clock_gettime(CLOCK_MONOTONIC, &now);
+			now_ms = (uint64_t)now.tv_sec * 1000
+				+ (uint64_t)now.tv_nsec / 1000000;
+			if (window->last_move_start_ms == 0
+				|| now_ms - window->last_move_start_ms > 100) {
+				window->move_start_handler(window,
+					window->move_start_user_data);
+			}
+			window->last_move_start_ms = now_ms;
+		}
 		window->move_handler(window, window->x, window->y, window->move_user_data);
 	}
 }
@@ -3412,6 +3430,16 @@ window_set_move_handler(struct window *window, void (*handler)(struct window*, i
 		return;
 	window->move_handler = handler;
 	window->move_user_data = user_data;
+}
+
+void
+window_set_move_start_handler(struct window *window,
+	void (*handler)(struct window*, void*), void *user_data)
+{
+	if (!window)
+		return;
+	window->move_start_handler = handler;
+	window->move_start_user_data = user_data;
 }
 
 void *window_get_focus_user_data(struct window *window)

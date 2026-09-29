@@ -180,6 +180,10 @@ window_set_focus_handler(struct window *window, void (*handler)(struct window*, 
 void
 window_set_move_handler(struct window *window, void (*handler)(struct window*, int, int, void*), void *user_data);
 
+void
+window_set_move_start_handler(struct window *window,
+	void (*handler)(struct window*, void*), void *user_data);
+
 struct display *
 window_get_display(struct window *window);
 

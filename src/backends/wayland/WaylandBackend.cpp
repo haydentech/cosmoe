@@ -818,6 +818,17 @@ public:
 		window_set_move_handler(w, (void (*)(struct window*, int, int, void*))handler, user_data);
 	}
 
+	virtual void WindowSetMoveStartHandler(backend_window_t window,
+		move_start_handler_t handler, void* user_data)
+	{
+		struct window* w = (struct window*)window;
+		if (!w)
+			return;
+
+		window_set_move_start_handler(w,
+			(void (*)(struct window*, void*))handler, user_data);
+	}
+
 	virtual void WindowSetFocusHandler(backend_window_t window, focus_handler_t handler, void* user_data)
 	{
 		struct window* w = (struct window*)window;

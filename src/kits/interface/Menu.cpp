@@ -2135,12 +2135,9 @@ BMenu::_Track(int* action, long start)
 		if (_CustomTrackingWantsToQuit())
 			break;
 
-		if (_IsStickyMode()) {
-			uint32 currentSequence = BWindow::GetNonMenuClickSequence();
-			if (currentSequence != startSequence) {
-				fState = MENU_STATE_CLOSED;
-				break;
-			}
+		if (BWindow::GetNonMenuClickSequence() != startSequence) {
+			fState = MENU_STATE_CLOSED;
+			break;
 		}
 
 		if (!LockLooper())
@@ -2254,8 +2251,14 @@ BMenu::_Track(int* action, long start)
 			uint32 newButtons = buttons;
 
 			// If user doesn't move the mouse, loop here,
-			// so we don't interfere with keyboard menu navigation
+			// so we don't interfere with keyboard menu navigation.
+			// A Wayland window drag delivers no pointer motion, so also
+			// watch the non-menu click sequence that a move start bumps.
 			do {
+				if (BWindow::GetNonMenuClickSequence() != startSequence) {
+					fState = MENU_STATE_CLOSED;
+					break;
+				}
 				snooze(snoozeAmount);
 				if (!LockLooper())
 					break;
