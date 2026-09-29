@@ -819,6 +819,20 @@ EditModelName(const Model* model, const char* name, size_t length)
 		}
 	}
 
+	// Cosmoe: The node monitor normally updates the model after a rename. New
+	// poses are added before their initial rename, though, so commands invoked
+	// immediately afterward can still see the old (or incomplete) entry_ref.
+	// Update it synchronously once the filesystem rename has succeeded.
+	if (result == B_OK && !model->IsVolume()) {
+		entry_ref ref;
+		if (entry.GetRef(&ref) == B_OK) {
+			node_ref directory;
+			directory.device = ref.device;
+			directory.node = ref.directory;
+			const_cast<Model*>(model)->UpdateEntryRef(&directory, ref.name);
+		}
+	}
+
 	return result;
 }
 
@@ -1874,9 +1888,9 @@ MoveItem(BEntry* entry, BDirectory* destDir, BPoint* loc, uint32 moveMode,
 			// size is irrelevant when simply moving to a new folder
 			loopControl->UpdateStatus(ref.name, ref, 1);
 			if (entry->IsDirectory())
-				return RecursiveMove(entry, destDir, loopControl);
-
-			MoveError::FailOnError(entry->MoveTo(destDir, newName));
+				MoveError::FailOnError(RecursiveMove(entry, destDir, loopControl));
+			else
+				MoveError::FailOnError(entry->MoveTo(destDir, newName));
 		} else {
 			bool removeSource = moveMode == kMoveSelectionTo;
 			bool makeOriginalName = (moveMode == kDuplicateSelection);
@@ -1886,6 +1900,16 @@ MoveItem(BEntry* entry, BDirectory* destDir, BPoint* loc, uint32 moveMode,
 				CopyFile(entry, &statbuf, destDir, loopControl, loc, makeOriginalName, undo);
 				if (removeSource)
 					entry->Remove();
+			}
+		}
+
+		if (moveMode == kMoveSelectionTo) {
+			TTracker* tracker = dynamic_cast<TTracker*>(be_app);
+			if (tracker != NULL) {
+				node_ref node;
+				node.device = statbuf.st_dev;
+				node.node = statbuf.st_ino;
+				tracker->NotifyEntryMoved(ref, node);
 			}
 		}
 	} catch (status_t error) {

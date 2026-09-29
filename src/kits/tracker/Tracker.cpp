@@ -726,6 +726,31 @@ TTracker::MoveRefsToTrash(const BMessage* message)
 
 
 void
+TTracker::NotifyEntryMoved(const entry_ref& oldRef, const node_ref& node)
+{
+	node_ref parent;
+	parent.device = oldRef.device;
+	parent.node = oldRef.directory;
+
+	BMessage message(B_NODE_MONITOR);
+	message.AddInt32("opcode", B_ENTRY_REMOVED);
+	message.AddDevice("device", node.device);
+	message.AddInode("directory", parent.node);
+	message.AddInode("node", node.node);
+	message.AddString("name", oldRef.name);
+
+	AutoLock<WindowList> lock(&fWindowList);
+	for (int32 index = 0; ; index++) {
+		BContainerWindow* window = FindContainerWindow(&parent, index);
+		if (window == NULL)
+			break;
+
+		window->PostMessage(&message, window->PoseView());
+	}
+}
+
+
+void
 TTracker::SelectRefs(const BMessage* message)
 {
 	uint32 type = 0;
