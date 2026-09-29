@@ -6,7 +6,9 @@ app_srcs = files(
     'Filter.cpp',
     'ImageCache.cpp',
     'ImageFileNavigator.cpp',
+	'InfoStatusView.cpp',
     'PrintOptionsWindow.cpp',
+	'ProgressStatusView.cpp',
     'ShowImageApp.cpp',
     'ShowImageSettings.cpp',
     'ShowImageStatusView.cpp',
@@ -14,7 +16,6 @@ app_srcs = files(
     'ShowImageWindow.cpp',
     'SupportingAppsMenu.cpp',
     'ToolBarIcons.cpp',
-    'ProgressWindow.cpp',
     'SelectionBox.cpp',
 )
 
