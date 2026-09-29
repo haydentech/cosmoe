@@ -76,9 +76,10 @@
 - Unit tests are not quite 100% passing yet
   - NodeInfo tests still have a failing test regarding tracker icons
 
+- In Terminal, ctrl-C doesn't kill processes
+
 - Tracker/libtracker/Deskbar bugs
   - "Get Info" on a file can sometimes hang Tracker (haven't seen this in a while)
-  - Dragging a file/folder to a new location in the window moves it in the fs, but it still shows in the original location until you refresh
   - Dragging a file/folder to a new window (e.g. to copy/move it to a new location) does not work
   - "Open With" always shows an empty menu
   - Tracker menus are layered behind the Deskbar on Wayland
@@ -101,10 +102,10 @@
 
 - Sometimes views don't draw completely on the inital draw, and a refresh/resize will be needed to force a full paint
 
+- Opening a menu can occasionally cause a crash, though haven't seen this in a while (Wayland)
+
 
 ## Platform-Specific Bugs
-
-- Opening a menu can occasionally cause a crash, though haven't seen this in a while (Wayland)
 
 - When resizing windows, occasionally the window content will go transparent for an instant (Wayland)
 

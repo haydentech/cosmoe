@@ -76,8 +76,18 @@ deb:
 else
 deb:
 	rm -rf debian/packages
-	dpkg-buildpackage -us -uc -b
-	mkdir -p debian/packages
+	saved=$$(mktemp); \
+	cp debian/changelog "$$saved"; \
+	restore() { cp "$$saved" debian/changelog; rm -f "$$saved"; }; \
+	trap restore EXIT; \
+	date_rev=$$(date +%Y%m%d); \
+	pkg_rev=$$(sed -nE '1s/^cosmoe \([^)]*-([0-9]+)\) .*/\1/p' debian/changelog); \
+	test -n "$$pkg_rev" || { echo "debian/changelog has no integer revision to stamp" >&2; exit 1; }; \
+	sed -E -i "1s/^(cosmoe \\([^)]*-)([0-9]+)(\\) .*)$$/\\1\\2.$$date_rev\\3/" debian/changelog; \
+	grep -Eq "^cosmoe \\([^)]*-$$pkg_rev.$$date_rev\\) " debian/changelog \
+		|| { echo "Failed to stamp Debian package revision" >&2; exit 1; }; \
+	dpkg-buildpackage -us -uc -b; \
+	mkdir -p debian/packages; \
 	mv ../cosmoe*.deb debian/packages/
 endif
 
