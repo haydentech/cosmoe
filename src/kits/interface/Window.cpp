@@ -1655,6 +1655,19 @@ window_move_handler(cosmoe_window_t _window, int32_t x, int32_t y, void* user_da
 	win->PostMessage(&msg, win);
 }
 
+// Callback invoked when a user begins moving a window, or the compositor
+// dismisses a menu popup because that move started.
+static void
+window_move_start_handler(cosmoe_window_t _window, void* user_data)
+{
+	(void)_window;
+	(void)user_data;
+
+	// Bump the sequence directly. Menu tracking waits on another thread, and a
+	// Wayland interactive move delivers no pointer motion that would wake it.
+	BWindow::NotifyNonMenuInteraction();
+}
+
 // Callback invoked by the graphics backend when the window gets/loses focus.
 static void
 window_focus_handler(cosmoe_window_t _window, bool focused, void* user_data)
@@ -2273,7 +2286,7 @@ BWindow::DispatchMessage(BMessage* message, BHandler* target)
 	if (message->what == B_MOUSE_DOWN) {
 		window_feel feel = Feel();
 		if (feel != kMenuWindowFeel)
-			sNonMenuClickSequence++;
+			NotifyNonMenuInteraction();
 	}
 
 	switch (message->what) {
@@ -6055,6 +6068,7 @@ BWindow::_SendShowOrHideMessage()
 			fLink->Attach<void*>((void*)key_handler);
 			fLink->Attach<void*>((void*)screen_handler);
 			fLink->Attach<void*>((void*)window_move_handler);
+			fLink->Attach<void*>((void*)window_move_start_handler);
 			fLink->Attach<void*>((void*)window_focus_handler);
 			fLink->Attach<int32_t>(fFrame.IntegerWidth());
 			fLink->Attach<int32_t>(fFrame.IntegerHeight());
@@ -6117,7 +6131,14 @@ void BWindow::_UpdateFrame()
 uint32
 BWindow::GetNonMenuClickSequence()
 {
-	return sNonMenuClickSequence;
+	return __atomic_load_n(&sNonMenuClickSequence, __ATOMIC_ACQUIRE);
+}
+
+
+void
+BWindow::NotifyNonMenuInteraction()
+{
+	__atomic_add_fetch(&sNonMenuClickSequence, 1, __ATOMIC_RELEASE);
 }
 
 

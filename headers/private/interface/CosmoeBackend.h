@@ -61,6 +61,7 @@ typedef void (*resize_handler_t)(backend_widget_t widget, int32_t width,
 typedef void (*windowframe_resize_handler_t)(backend_windowframe_t frame, int32_t width,
                                              int32_t height, void *data);
 typedef void (*move_handler_t)(backend_window_t window, int32_t x, int32_t y, void* user_data);
+typedef void (*move_start_handler_t)(backend_window_t window, void* user_data);
 typedef void (*focus_handler_t)(backend_window_t window, bool focused, void* user_data);
 
 typedef void (*button_handler_t)(backend_widget_t widget, void* input,
@@ -287,6 +288,13 @@ public:
 
 	// Movement callback
 	virtual void WindowSetMoveHandler(backend_window_t window, move_handler_t handler, void* user_data) = 0;
+	virtual void WindowSetMoveStartHandler(backend_window_t window,
+		move_start_handler_t handler, void* user_data)
+	{
+		(void)window;
+		(void)handler;
+		(void)user_data;
+	}
 	
 	// Focus callback
 	virtual void WindowSetFocusHandler(backend_window_t window, focus_handler_t handler, void* user_data) = 0;

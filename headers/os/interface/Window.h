@@ -274,6 +274,7 @@ public:
 
 	// Menu tracking support - detect clicks on non-menu windows
 	static	uint32				GetNonMenuClickSequence();
+	static	void				NotifyNonMenuInteraction();
 
 	virtual	bool				QuitRequested();
 	virtual thread_id			Run();
