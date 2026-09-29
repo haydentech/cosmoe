@@ -13,6 +13,7 @@
  *		Bernd Korz
  *		Stephan Aßmus <superstippi@gmx.de>
  *		Axel Dörfler, axeld@pinc-software.de
+ *		Philippe Houdoin
  */
 
 
