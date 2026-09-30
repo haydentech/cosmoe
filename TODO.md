@@ -8,8 +8,6 @@
 - Modal alerts are not fully modal on Wayland
   - The alert stays frontmost, but input will still be processed in the parent window.
 
-- After some recent graphics optimization, blinking text cursors no longer appear
-
 - `B_CMAP8` (and a few others) are not valid color spaces for drawing
   - This is due to lack of support in Cairo for these color spaces.
   - Should we auto-upgrade these color spaces to `B_RGB32` at `BBitmap` creation to avoid issues, or would this just cause new ones as apps try to insert 8-bit bitmap data?
