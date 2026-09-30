@@ -25,6 +25,7 @@
 #include <stdlib.h>
 #include <stddef.h>
 #include <stdio.h>
+#include <unistd.h>
 #include <sys/param.h>
 #include <sys/stat.h>
 #include <sys/wait.h>
@@ -217,6 +218,24 @@ Shell::Write(const void *buffer, size_t numBytes)
 		return B_NO_INIT;
 
 	return write(fFd, buffer, numBytes);
+}
+
+
+void
+Shell::Interrupt()
+{
+	if (fFd < 0)
+		return;
+
+	// The line discipline turns 0x03 into SIGINT for the foreground group.
+	// Also signal that group directly, in case the byte is swallowed before
+	// it reaches the pty.
+	pid_t foreground = tcgetpgrp(fFd);
+	if (foreground > 1 && foreground != getpgrp())
+		kill(-foreground, SIGINT);
+
+	const char intr = '\x03';
+	write(fFd, &intr, 1);
 }
 
 
@@ -541,6 +560,11 @@ Shell::_Spawn(int row, int col, const ShellParameters& parameters)
 			send_handshake_message(terminalThread, handshake);
 			exit(1);
 		}
+
+		// Session leader with no controlling terminal: make this slave the
+		// controlling tty so the line discipline can signal the foreground
+		// process group (Ctrl+C / VINTR).
+		ioctl(slave, TIOCSCTTY, 0);
 
 		/* set signal default */
 		signal(SIGCHLD, SIG_DFL);

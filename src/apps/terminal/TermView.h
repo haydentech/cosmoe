@@ -121,6 +121,8 @@ public:
 			void				SyncClipboard();
 			void				SelectAll();
 			void				Clear();
+			void				Interrupt();
+			void				SendControl(char control);
 
 			// Other
 			void				GetFrameSize(float* width, float* height) const;

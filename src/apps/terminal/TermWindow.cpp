@@ -303,7 +303,20 @@ TermWindow::_InitWindow()
 {
 	// make menu bar
 	_SetupMenu();
-	RemoveShortcut('C', B_CONTROL_KEY);
+
+	// BWindow binds Command+C to Copy. On Linux, the Command key is Control,
+	// so that binding consumes Ctrl+C. Edit > Copy has no shortcut of its own.
+	RemoveShortcut('C', B_COMMAND_KEY);
+
+	// These are not menu shortcuts. On Linux, Command is Control, and the
+	// Command+Control forms collapse to plain Ctrl, which the shell needs
+	// (suspend, backspace, XOFF, and so on).
+	RemoveShortcut('X', B_COMMAND_KEY);
+	RemoveShortcut('M', B_COMMAND_KEY | B_CONTROL_KEY);
+	RemoveShortcut('Z', B_COMMAND_KEY | B_CONTROL_KEY);
+	RemoveShortcut('Z', B_SHIFT_KEY | B_COMMAND_KEY | B_CONTROL_KEY);
+	RemoveShortcut('H', B_COMMAND_KEY | B_CONTROL_KEY);
+	RemoveShortcut('B', B_COMMAND_KEY | B_CONTROL_KEY);
 
 	// shortcuts to switch tabs
 	for (int32 i = 0; i < 9; i++) {
@@ -324,9 +337,11 @@ TermWindow::_InitWindow()
 	fTabView->SetListener(this);
 	AddChild(fTabView);
 
-	// Make the scroll view one pixel wider than the tab view container view, so
-	// the scroll bar will look good.
-	fTabView->SetInsets(0, 0, -1, 0);
+	// The scroll view is one pixel wider and taller than the tab container so
+	// the vertical scrollbar's right and bottom borders fall outside the
+	// window and meet the window edges. There is no resize box on Cosmoe
+	// to occupy that corner.
+	fTabView->SetInsets(0, 0, -1, -1);
 }
 
 
@@ -557,10 +572,8 @@ TermWindow::_SetupMenu()
 	_UpdateSwitchTerminalsMenuItem();
 
 #ifdef USE_DEBUG_SNAPSHOTS
-	AddShortcut('S', B_COMMAND_KEY | B_CONTROL_KEY,
-		new BMessage(SHORTCUT_DEBUG_SNAPSHOTS));
-	AddShortcut('C', B_COMMAND_KEY | B_CONTROL_KEY,
-		new BMessage(SHORTCUT_DEBUG_CAPTURE));
+	// Do not bind S or C. On Linux Command is Control, so Command+Control
+	// collapses to plain Ctrl and would steal the shell's XOFF and VINTR.
 #endif
 
 #if 0
@@ -704,6 +717,133 @@ TermWindow::_GetPreferredFont(BFont& font)
 		if (strcmp(item->Label(), size) == 0)
 			item->SetMarked(true);
 	}
+}
+
+
+static bool
+is_navigation_scancode(uint32 rawKey)
+{
+	switch (rawKey) {
+		case 14:	// KEY_BACKSPACE
+		case 15:	// KEY_TAB
+		case 28:	// KEY_ENTER
+		case 96:	// KEY_KPENTER
+		case 102:	// KEY_HOME
+		case 103:	// KEY_UP
+		case 104:	// KEY_PAGEUP
+		case 105:	// KEY_LEFT
+		case 106:	// KEY_RIGHT
+		case 107:	// KEY_END
+		case 108:	// KEY_DOWN
+		case 109:	// KEY_PAGEDOWN
+		case 110:	// KEY_INSERT
+		case 111:	// KEY_DELETE
+			return true;
+		default:
+			return false;
+	}
+}
+
+
+// Linux evdev codes are not alphabetical. Returns 0 when the key is not a letter.
+static char
+letter_for_scancode(uint32 rawKey)
+{
+	switch (rawKey) {
+		case 30: return 'a';
+		case 48: return 'b';
+		case 46: return 'c';
+		case 32: return 'd';
+		case 18: return 'e';
+		case 33: return 'f';
+		case 34: return 'g';
+		case 35: return 'h';
+		case 23: return 'i';
+		case 36: return 'j';
+		case 37: return 'k';
+		case 38: return 'l';
+		case 50: return 'm';
+		case 49: return 'n';
+		case 24: return 'o';
+		case 25: return 'p';
+		case 16: return 'q';
+		case 19: return 'r';
+		case 31: return 's';
+		case 20: return 't';
+		case 22: return 'u';
+		case 47: return 'v';
+		case 17: return 'w';
+		case 45: return 'x';
+		case 21: return 'y';
+		case 44: return 'z';
+		default:
+			return 0;
+	}
+}
+
+
+// Control character for this key, or 0 when it is not a Ctrl+letter chord.
+// Menu shortcuts are left for BWindow. On Linux, Command is Control, so an
+// unmatched Ctrl chord would otherwise be discarded as a shortcut modifier.
+static char
+control_char_for_key(BMessage* message)
+{
+	if (message == NULL || message->what != B_KEY_DOWN)
+		return 0;
+
+	uint32 modifiers = 0;
+	message->FindInt32("modifiers", (int32*)&modifiers);
+	if ((modifiers & (B_CONTROL_KEY | B_COMMAND_KEY)) == 0)
+		return 0;
+
+	uint32 rawKey = 0;
+	message->FindInt32("key", (int32*)&rawKey);
+	if (is_navigation_scancode(rawKey))
+		return 0;
+
+	const char* bytes = NULL;
+	unsigned char byte = 0;
+	if (message->FindString("bytes", &bytes) == B_OK && bytes != NULL)
+		byte = (unsigned char)bytes[0];
+
+	char letter = letter_for_scancode(rawKey);
+	if (letter == 0) {
+		if (byte >= 'a' && byte <= 'z')
+			letter = (char)byte;
+		else if (byte >= 'A' && byte <= 'Z')
+			letter = (char)(byte - 'A' + 'a');
+		else if (byte >= 1 && byte <= 26)
+			letter = (char)('a' + byte - 1);
+	}
+	if (letter == 0)
+		return 0;
+
+	return (char)(letter - 'a' + 1);
+}
+
+
+void
+TermWindow::DispatchMessage(BMessage* message, BHandler* handler)
+{
+	char control = control_char_for_key(message);
+	if (control != 0) {
+		uint32 modifiers = 0;
+		message->FindInt32("modifiers", (int32*)&modifiers);
+		uint32 shortcutKey = (uint32)('A' + control - 1);
+		if (!HasShortcut(shortcutKey, modifiers)) {
+			if (TermViewContainerView* container = _ActiveTermViewContainerView()) {
+				if (TermView* view = container->GetTermView()) {
+					if (control == '\x03')
+						view->Interrupt();
+					else
+						view->SendControl(control);
+				}
+			}
+			return;
+		}
+	}
+
+	BWindow::DispatchMessage(message, handler);
 }
 
 
@@ -976,9 +1116,9 @@ TermWindow::MessageReceived(BMessage *message)
 				fSavedFrame = Frame();
 				BScreen screen(this);
 
-				for (int32 i = fTabView->CountTabs() - 1; i >= 0; i--)
-					_TermViewAt(i)->ScrollBar()->ResizeBy(0,
-						(be_control_look->GetScrollBarWidth(B_VERTICAL) - 1));
+				// for (int32 i = fTabView->CountTabs() - 1; i >= 0; i--)
+				// 	_TermViewAt(i)->ScrollBar()->ResizeBy(0,
+				// 		(be_control_look->GetScrollBarWidth(B_VERTICAL) - 1));
 
 				fMenuBar->Hide();
 				fTabView->ResizeBy(0, mbHeight);
@@ -996,9 +1136,9 @@ TermWindow::MessageReceived(BMessage *message)
 				float mbHeight = fMenuBar->Bounds().Height() + 1;
 				fMenuBar->Show();
 
-				for (int32 i = fTabView->CountTabs() - 1; i >= 0; i--)
-					_TermViewAt(i)->ScrollBar()->ResizeBy(0,
-						-(be_control_look->GetScrollBarWidth(B_VERTICAL) - 1));
+				// for (int32 i = fTabView->CountTabs() - 1; i >= 0; i--)
+				// 	_TermViewAt(i)->ScrollBar()->ResizeBy(0,
+				// 		-(be_control_look->GetScrollBarWidth(B_VERTICAL) - 1));
 
 				ResizeTo(fSavedFrame.Width(), fSavedFrame.Height());
 				MoveTo(fSavedFrame.left, fSavedFrame.top);
@@ -1371,9 +1511,9 @@ TermWindow::_AddTab(const Arguments* args, const BString& currentDirectory)
 		TermViewContainerView* containerView = new TermViewContainerView(view);
 		BScrollView* scrollView = new TermScrollView("scrollView",
 			containerView, view, firstSession);
-		if (!fFullScreen)
-			scrollView->ScrollBar(B_VERTICAL)
-				->ResizeBy(0, -(be_control_look->GetScrollBarWidth(B_VERTICAL) - 1));
+		// if (!fFullScreen)
+		// 	scrollView->ScrollBar(B_VERTICAL)
+		// 		->ResizeBy(0, -(be_control_look->GetScrollBarWidth(B_VERTICAL) - 1));
 
 		if (firstSession)
 			fTabView->SetScrollView(scrollView);

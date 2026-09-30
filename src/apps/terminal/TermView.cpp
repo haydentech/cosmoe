@@ -975,6 +975,25 @@ TermView::Clear()
 }
 
 
+void
+TermView::Interrupt()
+{
+	if (fShell != NULL)
+		fShell->Interrupt();
+}
+
+
+void
+TermView::SendControl(char control)
+{
+	if (fShell == NULL || control == 0)
+		return;
+
+	_ScrollTo(0, true);
+	fShell->Write(&control, 1);
+}
+
+
 //! Draw region
 void
 TermView::_InvalidateTextRange(TermPos start, TermPos end)

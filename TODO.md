@@ -74,8 +74,6 @@
 - Unit tests are not quite 100% passing yet
   - NodeInfo tests still have a failing test regarding tracker icons
 
-- In Terminal, ctrl-C doesn't kill processes
-
 - Tracker/libtracker/Deskbar bugs
   - "Get Info" on a file can sometimes hang Tracker (haven't seen this in a while)
   - Dragging a file/folder to a new window (e.g. to copy/move it to a new location) does not work
