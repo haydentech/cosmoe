@@ -1,17 +1,6 @@
 app_name = 'WebPositive'
 linux_desktop_id = 'x-vnd.Haiku-WebPositive'
 linux_desktop_categories = 'Network;WebBrowser;'
-if is_linux
-    meson.add_install_script(
-        'sh', linux_desktop_entry_install_script,
-        get_option('prefix'),
-        linux_desktop_id,
-        app_name,
-        app_name,
-        app_name.to_lower(),
-        linux_desktop_categories)
-endif
-
 webkit_headers = [
     'WebView.h',
     'WebWindow.h',
@@ -54,17 +43,20 @@ if is_linux
     endif
 endif
 
-# webpositive_option = get_option('enable_webpositive')
-# webpositive_available = webkit_headers_found and webkit_dep_found
+if not webkit_headers_found or not webkit_dep_found
+    message('Skipping WebPositive: HaikuWebKit headers or library not found')
+else
+    if is_linux
+        meson.add_install_script(
+            'sh', linux_desktop_entry_install_script,
+            get_option('prefix'),
+            linux_desktop_id,
+            app_name,
+            app_name,
+            app_name.to_lower(),
+            linux_desktop_categories)
+    endif
 
-# if webpositive_option.disabled()
-#     message('WebPositive disabled by option')
-# elif not webpositive_available
-#     if webpositive_option.enabled()
-#         error('WebPositive requested, but HaikuWebKit headers or library were not found')
-#     endif
-#     message('Skipping WebPositive: HaikuWebKit headers or library not found')
-# else
     app_srcs = files(
         'AuthenticationPanel.cpp',
         'BookmarkBar.cpp',
@@ -106,7 +98,7 @@ endif
             command : [
                 'sh', '-c',
                 'echo "void _cosmoe_rsrc_stub_@0@(void) {}" | '.format(app_name) +
-                cc.cmd_array()[0] + ' -x c - -c -o @OUTPUT@'
+                ' '.join(cc.cmd_array()) + ' -x c - -c -o @OUTPUT@'
             ],
             build_by_default : true)
 
@@ -275,6 +267,6 @@ PLIST
             fi
         ''')
     endif
-# endif
+endif
 
-    app_enabled = false
+app_enabled = false
