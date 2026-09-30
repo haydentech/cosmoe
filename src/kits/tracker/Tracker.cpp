@@ -1815,6 +1815,14 @@ TTracker::TrashFull() const
 }
 
 
+void
+TTracker::RescanTrash()
+{
+	if (fTrashWatcher != NULL)
+		fTrashWatcher->Rescan();
+}
+
+
 bool
 TTracker::IsTrashNode(const node_ref* node) const
 {

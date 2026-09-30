@@ -507,8 +507,10 @@ attach_parent_watch(node_monitor_watch& watch)
 			return to_status(errno);
 		}
 
+		// This directory may already be watched for create/delete. OR into
+		// the existing mask; replacing it drops those events.
 		int wd = inotify_add_watch(sInotifyFD, watch.parentPath.c_str(),
-			IN_MOVED_FROM | IN_MOVED_TO);
+			IN_MOVED_FROM | IN_MOVED_TO | IN_MASK_ADD);
 		if (wd < 0) {
 			delete parentWatch;
 			return to_status(errno);
@@ -588,21 +590,24 @@ process_parent_inotify_event(const struct inotify_event* event)
 		}
 
 		pthread_mutex_unlock(&sNodeMonitorLock);
-		return true;
+		// Fall through to directory handling. This wd is shared with a
+		// directory watch when that directory is also the parent of a
+		// name-watched node.
+		return false;
 	}
 
 	if ((event->mask & IN_MOVED_TO) != 0 && event->cookie != 0) {
 		auto moveIt = sPendingSelfMoves.find(event->cookie);
 		if (moveIt == sPendingSelfMoves.end()) {
 			pthread_mutex_unlock(&sNodeMonitorLock);
-			return true;
+			return false;
 		}
 
 		pending_self_move move = moveIt->second;
 		node_monitor_watch* watch = move.watch;
 		if (watch == NULL || watch->parentWatch != parentWatch) {
 			pthread_mutex_unlock(&sNodeMonitorLock);
-			return true;
+			return false;
 		}
 
 		std::string newPath = child_path(parentWatch->path, name.c_str());
@@ -611,7 +616,7 @@ process_parent_inotify_event(const struct inotify_event* event)
 			|| st.st_dev != watch->device
 			|| st.st_ino != watch->node) {
 			pthread_mutex_unlock(&sNodeMonitorLock);
-			return true;
+			return false;
 		}
 
 		sPendingSelfMoves.erase(moveIt);
@@ -635,11 +640,11 @@ process_parent_inotify_event(const struct inotify_event* event)
 		for (const node_monitor_target& target : targets)
 			send_self_moved(target, move, *watch);
 
-		return true;
+		return false;
 	}
 
 	pthread_mutex_unlock(&sNodeMonitorLock);
-	return true;
+	return false;
 }
 
 

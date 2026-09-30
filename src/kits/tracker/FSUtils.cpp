@@ -3094,6 +3094,12 @@ empty_trash(void*)
 			alert->Go();
 	}
 
+	// Deletions can be missed when the trash directory watch shares an
+	// inotify descriptor with a name watch. Recompute the icon from the
+	// directories as they are now.
+	if (TTracker* tracker = dynamic_cast<TTracker*>(be_app))
+		tracker->RescanTrash();
+
 	return B_OK;
 }
 
