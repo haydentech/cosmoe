@@ -37,6 +37,7 @@ public:
 
 			ssize_t				Read(void* buffer, size_t numBytes) const;
 			ssize_t				Write(const void* buffer, size_t numBytes);
+			void				Interrupt();
 
 			status_t			UpdateWindowSize(int row, int columns);
 

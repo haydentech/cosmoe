@@ -242,6 +242,31 @@ TermView::DefaultState::KeyDown(const char* bytes, int32 numBytes)
 
 	fView->_ActivateCursor(true);
 
+	// Control is the Command key on Linux, and the backend may deliver either
+	// the C0 control byte or the plain letter. The shell needs the control
+	// byte (Ctrl+C is VINTR). Leave arrow and editing keys for the switch
+	// below.
+	if (numBytes == 1 && (mod & (B_CONTROL_KEY | B_COMMAND_KEY)) != 0) {
+		unsigned char byte = (unsigned char)bytes[0];
+		char control = 0;
+		if (byte >= 'a' && byte <= 'z')
+			control = (char)(byte - 'a' + 1);
+		else if (byte >= 'A' && byte <= 'Z')
+			control = (char)(byte - 'A' + 1);
+		else if (byte >= 1 && byte <= 26 && byte != B_BACKSPACE && byte != B_TAB
+			&& byte != B_ENTER && byte != B_RETURN
+			&& byte != B_LEFT_ARROW && byte != B_RIGHT_ARROW
+			&& byte != B_UP_ARROW && byte != B_DOWN_ARROW) {
+			control = (char)byte;
+		}
+
+		if (control != 0 && fView->fShell != NULL) {
+			fView->_ScrollTo(0, true);
+			fView->fShell->Write(&control, 1);
+			return;
+		}
+	}
+
 	// Handle the Option key when used as Meta
 	bool interpretMetaKey = fView->TextBuffer()->IsMode(MODE_INTERPRET_META_KEY);
 	bool metaKeySendsEscape = fView->TextBuffer()->IsMode(MODE_META_KEY_SENDS_ESCAPE);
