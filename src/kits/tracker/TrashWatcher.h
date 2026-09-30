@@ -52,6 +52,7 @@ public:
 	virtual thread_id Run();
 	bool CheckTrashDirs();
 	bool IsTrashNode(const node_ref*) const;
+	void Rescan();
 
 protected:
 	virtual void MessageReceived(BMessage*);

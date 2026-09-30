@@ -52,6 +52,22 @@ All rights reserved.
 #include "Tracker.h"
 
 
+static const uint32 kRescanTrash = 'Trsc';
+
+
+static void
+NotifyTrashIconChanged(BDirectory& trashDir)
+{
+	BEntry entry;
+	if (trashDir.GetEntry(&entry) != B_OK)
+		return;
+
+	Model trashModel(&entry);
+	if (trashModel.InitCheck() == B_OK)
+		IconCache::sIconCache->IconChanged(&trashModel);
+}
+
+
 //	 #pragma mark - BTrashWatcher
 
 
@@ -111,8 +127,21 @@ BTrashWatcher::IsTrashNode(const node_ref* testNode) const
 
 
 void
+BTrashWatcher::Rescan()
+{
+	PostMessage(kRescanTrash);
+}
+
+
+void
 BTrashWatcher::MessageReceived(BMessage* message)
 {
+	if (message->what == kRescanTrash) {
+		fTrashFull = CheckTrashDirs();
+		UpdateTrashIcon();
+		return;
+	}
+
 	if (message->what != B_NODE_MONITOR) {
 		_inherited::MessageReceived(message);
 		return;
@@ -195,6 +224,7 @@ BTrashWatcher::UpdateTrashIcon()
 			if (vectorData) {
 				trashDir.WriteAttr(kAttrIcon, B_VECTOR_ICON_TYPE, 0,
 					vectorData, vectorSize);
+				NotifyTrashIconChanged(trashDir);
 			} else
 				TRESPASS();
 		}

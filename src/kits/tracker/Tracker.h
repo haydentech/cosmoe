@@ -95,6 +95,7 @@ public:
 		// themselves as a preferred handler (case of applications)
 
 	bool TrashFull() const;
+	void RescanTrash();
 	bool IsTrashNode(const node_ref* node) const;
 	bool InTrashNode(const entry_ref* ref) const;
 
