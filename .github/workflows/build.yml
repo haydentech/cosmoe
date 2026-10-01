@@ -120,6 +120,7 @@ jobs:
 
       - name: Run unit tests
         run: |
+          chmod +x builddir/src/tests/UnitTester
           ./run_unit_tests.sh \
             App \
             SupportKit \
