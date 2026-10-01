@@ -1,0 +1,133 @@
+name: Build and Test
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+
+    container:
+      image: registry.fedoraproject.org/fedora:44
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v6
+
+      - name: Install dependencies
+        run: |
+          dnf install -y \
+            gcc gcc-c++ clang \
+            meson ninja-build pkgconf-pkg-config \
+            flex bison \
+            cairo-devel libpng-devel libjpeg-turbo-devel libtiff-devel \
+            libwebp-devel zlib-devel \
+            openssl-devel \
+            libicu-devel freetype-devel pango-devel \
+            pixman-devel fontconfig-devel glib2-devel \
+            libX11-devel libX11-xcb libXcursor-devel libXrandr-devel \
+            libxkbcommon-devel libxkbcommon-x11-devel \
+            wayland-devel
+
+      - name: Configure
+        run: meson setup builddir
+
+      - name: Build
+        run: ninja -C builddir
+
+      - name: Upload build directory
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: builddir
+          path: builddir/
+
+
+  kernel_tests:
+    name: Kernel Tests
+    needs: build
+    runs-on: ubuntu-latest
+
+    container:
+      image: registry.fedoraproject.org/fedora:44
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v6
+
+      - name: Install dependencies
+        run: |
+          dnf install -y \
+            gcc gcc-c++ clang \
+            meson ninja-build pkgconf-pkg-config \
+            flex bison \
+            cairo-devel libpng-devel libjpeg-turbo-devel libtiff-devel \
+            libwebp-devel zlib-devel \
+            openssl-devel \
+            libicu-devel freetype-devel pango-devel \
+            pixman-devel fontconfig-devel glib2-devel \
+            libX11-devel libX11-xcb libXcursor-devel libXrandr-devel \
+            libxkbcommon-devel libxkbcommon-x11-devel \
+            wayland-devel
+
+      - name: Download build
+        uses: actions/download-artifact@v5
+        with:
+          name: builddir
+          path: builddir
+
+      - name: Run kernel tests
+        run: ./run_kernel_tests.sh
+
+
+  unit_tests:
+    name: Unit Tests
+    needs: build
+    runs-on: ubuntu-latest
+
+    container:
+      image: registry.fedoraproject.org/fedora:44
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v6
+
+      - name: Install dependencies
+        run: |
+          dnf install -y \
+            gcc gcc-c++ clang \
+            meson ninja-build pkgconf-pkg-config \
+            flex bison \
+            cairo-devel libpng-devel libjpeg-turbo-devel libtiff-devel \
+            libwebp-devel zlib-devel \
+            openssl-devel \
+            libicu-devel freetype-devel pango-devel \
+            pixman-devel fontconfig-devel glib2-devel \
+            libX11-devel libX11-xcb libXcursor-devel libXrandr-devel \
+            libxkbcommon-devel libxkbcommon-x11-devel \
+            wayland-devel
+
+      - name: Download build
+        uses: actions/download-artifact@v5
+        with:
+          name: builddir
+          path: builddir
+
+      - name: Run unit tests
+        run: |
+          ./run_unit_tests.sh \
+            App \
+            SupportKit \
+            LocaleKit \
+            NetAPI \
+            BFile \
+            BNode \
+            BPath \
+            BDirectory \
+            BSymLink \
+            BVolume
