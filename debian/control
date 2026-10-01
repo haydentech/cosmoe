@@ -38,5 +38,5 @@ Description: Cosmoe
  A graphical interface library based on the BeOS API
  .
  Cosmoe is a C++ library that allows developers to build rich, easy-to-code apps using
-the elegant BeOS API.  You can target Linux (both X11 & Wayland), MacOS, Windows, and
-Haiku with one codebase.
+ the elegant BeOS API.  You can target Linux (both X11 & Wayland), MacOS, Windows, and
+ Haiku with one codebase.
