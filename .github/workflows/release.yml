@@ -71,16 +71,16 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y \
-            gcc g++ \
+            build-essential \
             meson ninja-build pkg-config \
             flex bison \
-            libcairo2-dev libpng-dev libjpeg-dev libwebp-dev \
+            libcairo2-dev libpng-dev libjpeg-dev libwebp-dev libtiff-dev \
             zlib1g-dev \
-            libicu-dev libpango1.0-dev \
+            libicu-dev libpango1.0-dev libicns-dev libraw-dev \
             libpixman-1-dev libfontconfig1-dev libglib2.0-dev \
-            libx11-dev libx11-xcb-dev libxcursor-dev \
+            libx11-dev libx11-xcb-dev libxcursor-dev libxrandr-dev \
             libxkbcommon-dev libxkbcommon-x11-dev \
-            libwayland-dev \
+            libwayland-dev libfuse3-dev \
             debhelper dpkg-dev fakeroot
 
       - name: Build Debian packages
