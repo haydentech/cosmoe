@@ -1,0 +1,126 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-test:
+    name: Build and Test Release
+    runs-on: ubuntu-latest
+
+    container:
+      image: registry.fedoraproject.org/fedora:44
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v6
+
+      - name: Install dependencies
+        run: |
+          dnf install -y \
+            gcc gcc-c++ \
+            meson ninja-build pkgconf-pkg-config \
+            flex bison \
+            cairo-devel libpng-devel libjpeg-turbo-devel \
+            libwebp-devel zlib-devel \
+            libicu-devel pango-devel \
+            pixman-devel fontconfig-devel glib2-devel \
+            libX11-devel libX11-xcb libXcursor-devel \
+            libxkbcommon-devel libxkbcommon-x11-devel \
+            wayland-devel
+
+      - name: Configure
+        run: meson setup builddir
+
+      - name: Build
+        run: ninja -C builddir
+
+      - name: Run kernel tests
+        run: ./run_kernel_tests.sh
+
+      - name: Run unit tests
+        run: |
+          ./run_unit_tests.sh \
+            App \
+            SupportKit \
+            LocaleKit \
+            NetAPI \
+            BFile \
+            BNode \
+            BPath \
+            BDirectory \
+            BSymLink \
+            BVolume
+
+
+  package-deb:
+    name: Build Debian Packages
+    needs: build-and-test
+    runs-on: ubuntu-26.04
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v6
+
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            gcc g++ \
+            meson ninja-build pkg-config \
+            flex bison \
+            libcairo2-dev libpng-dev libjpeg-dev libwebp-dev \
+            zlib1g-dev \
+            libicu-dev libpango1.0-dev \
+            libpixman-1-dev libfontconfig1-dev libglib2.0-dev \
+            libx11-dev libx11-xcb-dev libxcursor-dev \
+            libxkbcommon-dev libxkbcommon-x11-dev \
+            libwayland-dev \
+            debhelper dpkg-dev fakeroot
+
+      - name: Build Debian packages
+        run: |
+          make deb
+
+      - name: Show generated packages
+        run: |
+          echo "Generated Debian packages:"
+          ls -lh debian/packages/
+
+      - name: Upload Debian packages
+        uses: actions/upload-artifact@v4
+        with:
+          name: deb-packages
+          path: debian/packages/*.deb
+
+
+  release:
+    name: Publish GitHub Release
+    needs: package-deb
+    runs-on: ubuntu-26.04
+
+    steps:
+      - name: Download Debian packages
+        uses: actions/download-artifact@v5
+        with:
+          name: deb-packages
+          path: debian/packages
+
+      - name: Show release files
+        run: |
+          ls -lh debian/packages/
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          gh release create "$TAG" \
+            debian/packages/*.deb \
+            --title "$TAG" \
+            --generate-notes
