@@ -1,72 +1,42 @@
 Source: cosmoe
-Section: libs
+Section: graphics
 Priority: optional
 Maintainer: Bill Hayden <hayden@haydentech.com>
 Build-Depends:
  debhelper-compat (= 13),
- g++,
- flex,
- bison,
  meson,
  ninja-build,
  pkg-config,
+ flex,
+ bison,
  libcairo2-dev,
- libfontconfig-dev,
- libfreetype6-dev,
- libglib2.0-dev,
- libicns-dev,
- libicu-dev,
+ libpng-dev,
  libjpeg-dev,
+ libwebp-dev,
+ zlib1g-dev,
+ libicu-dev,
  libpango1.0-dev,
  libpixman-1-dev,
- libpng-dev,
- libraw-dev,
- libtiff-dev,
- libwayland-dev,
- libwebp-dev,
+ libfontconfig1-dev,
+ libglib2.0-dev,
+ libx11-dev,
  libx11-xcb-dev,
+ libxcursor-dev,
  libxkbcommon-dev,
  libxkbcommon-x11-dev,
- libxcursor-dev,
- libxrandr-dev,
- libfuse3-dev,
- zlib1g-dev
+ libwayland-dev
 Standards-Version: 4.6.2
 Homepage: https://cosmoe.org
-Rules-Requires-Root: no
+Rules-Requires-Root: yes
 
 Package: cosmoe
 Architecture: any
 Depends:
- adwaita-icon-theme,
- xcursor-themes,
  ${shlibs:Depends},
  ${misc:Depends}
-Description: BeOS-compatible C++ application framework
- Cosmoe is a C++ library for building rich applications with the BeOS API
- across Linux, macOS, Windows, and Haiku.
+Description: Cosmoe
+ A graphical interface library based on the BeOS API
  .
- This package contains Cosmoe's shared libraries, runtime add-ons, and
- supporting data files.
-
-Package: cosmoe-dev
-Section: libdevel
-Architecture: any
-Depends:
- cosmoe (= ${binary:Version}),
- ${misc:Depends}
-Description: development files for the Cosmoe framework
- This package contains the C++ headers, static libraries, resource compiler,
- and command-line development tools required to build applications against
- Cosmoe.
-
-Package: cosmoe-apps
-Section: x11
-Architecture: any
-Depends:
- cosmoe (= ${binary:Version}),
- ${shlibs:Depends},
- ${misc:Depends}
-Description: applications bundled with the Cosmoe framework
- This package contains the sample applications, desktop integrations, and
- command-line tools bundled with Cosmoe.
+ Cosmoe is a C++ library that allows developers to build rich, easy-to-code apps using
+the elegant BeOS API.  You can target Linux (both X11 & Wayland), MacOS, Windows, and
+Haiku with one codebase.
