@@ -22,9 +22,13 @@ parse_ASN1(ASN1_GENERALIZEDTIME *asn1)
 {
 	// Get the raw string data out of the ASN1 container. It looks like this:
 	// "YYMMDDHHMMSSZ"
-	struct tm time;
+	const unsigned char* data = ASN1_STRING_get0_data(asn1);
+	if (data == NULL || ASN1_STRING_length(asn1) < 12)
+		return B_BAD_DATA;
 
-	if (sscanf((char*)asn1->data, "%2d%2d%2d%2d%2d%2d", &time.tm_year,
+	struct tm time = {};
+
+	if (sscanf((const char*)data, "%2d%2d%2d%2d%2d%2d", &time.tm_year,
 			&time.tm_mon, &time.tm_mday, &time.tm_hour, &time.tm_min,
 			&time.tm_sec) == 6) {
 
@@ -39,7 +43,7 @@ parse_ASN1(ASN1_GENERALIZEDTIME *asn1)
 
 
 static BString
-decode_X509_NAME(X509_NAME* name)
+decode_X509_NAME(const X509_NAME* name)
 {
 	char* buffer = X509_NAME_oneline(name, NULL, 0);
 
@@ -108,7 +112,7 @@ BCertificate::IsSelfSigned() const
 BString
 BCertificate::Issuer() const
 {
-	X509_NAME* name = X509_get_issuer_name(fPrivate->fX509);
+	const X509_NAME* name = X509_get_issuer_name(fPrivate->fX509);
 	return decode_X509_NAME(name);
 }
 
@@ -116,7 +120,7 @@ BCertificate::Issuer() const
 BString
 BCertificate::Subject() const
 {
-	X509_NAME* name = X509_get_subject_name(fPrivate->fX509);
+	const X509_NAME* name = X509_get_subject_name(fPrivate->fX509);
 	return decode_X509_NAME(name);
 }
 

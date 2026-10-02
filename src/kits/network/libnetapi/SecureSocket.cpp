@@ -9,6 +9,8 @@
 
 #include <SecureSocket.h>
 
+#include <vector>
+
 #ifdef OPENSSL_ENABLED
 #	include <openssl/ssl.h>
 #	include <openssl/ssl3.h> // for TRACE_SESSION_KEY only
@@ -45,32 +47,46 @@
 int SSL_SESSION_print_client_random(BIO *bp, const SSL *ssl)
 {
 	const SSL_SESSION *x = SSL_get_session(ssl);
-	size_t i;
-
 	if (x == NULL)
-		goto err;
-	if (x->session_id_length == 0 || x->master_key_length == 0)
-		goto err;
+		return 0;
+
+	size_t clientRandomLength = SSL_get_client_random(ssl, NULL, 0);
+	if (clientRandomLength == 0)
+		return 0;
+
+	std::vector<unsigned char> clientRandom(clientRandomLength);
+	if (SSL_get_client_random(ssl, clientRandom.data(), clientRandom.size())
+		!= clientRandom.size()) {
+		return 0;
+	}
+
+	size_t masterKeyLength = SSL_SESSION_get_master_key(x, NULL, 0);
+	if (masterKeyLength == 0)
+		return 0;
+
+	std::vector<unsigned char> masterKey(masterKeyLength);
+	if (SSL_SESSION_get_master_key(x, masterKey.data(), masterKey.size())
+		!= masterKey.size()) {
+		return 0;
+	}
 
 	if (BIO_puts(bp, "CLIENT_RANDOM ") <= 0)
-		goto err;
+		return 0;
 
-	for (i = 0; i < sizeof(ssl->s3->client_random); i++) {
-		if (BIO_printf(bp, "%02X", ssl->s3->client_random[i]) <= 0)
-			goto err;
+	for (size_t i = 0; i < clientRandom.size(); i++) {
+		if (BIO_printf(bp, "%02X", clientRandom[i]) <= 0)
+			return 0;
 	}
 	if (BIO_puts(bp, " ") <= 0)
-		goto err;
-	for (i = 0; i < (size_t)x->master_key_length; i++) {
-		if (BIO_printf(bp, "%02X", x->master_key[i]) <= 0)
-			goto err;
+		return 0;
+	for (size_t i = 0; i < masterKey.size(); i++) {
+		if (BIO_printf(bp, "%02X", masterKey[i]) <= 0)
+			return 0;
 	}
 	if (BIO_puts(bp, "\n") <= 0)
-		goto err;
+		return 0;
 
 	return (1);
-err:
-	return (0);
 }
 
 
