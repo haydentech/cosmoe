@@ -1543,6 +1543,16 @@ window_handle_key_press(struct window *window, XKeyEvent *event)
 		/* Simple UTF-8 to unicode conversion for ASCII */
 		unicode = (uint32_t)buf[0];
 	}
+
+	/* event->state is the modifier mask before this key. Force the C0
+	 * control character when Control is held, even if the xkb state has
+	 * not applied Control yet. */
+	if ((event->state & ControlMask) != 0) {
+		if (keysym >= XKB_KEY_a && keysym <= XKB_KEY_z)
+			unicode = (keysym - XKB_KEY_a) + 1;
+		else if (keysym >= XKB_KEY_A && keysym <= XKB_KEY_Z)
+			unicode = (keysym - XKB_KEY_A) + 1;
+	}
 	
 	/* Pass adjusted keycode (scan code) and unicode character to match Wayland/Linux behavior */
 	/* Normalize carriage return to line feed for B_ENTER */
