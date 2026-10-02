@@ -158,6 +158,9 @@ BFile::SetTo(const char* path, uint32 openMode)
 				break;
 		}
 		if (result == B_OK) {
+			#ifdef _WIN32
+			openFlags |= O_BINARY;
+			#endif
 			if (openMode & B_ERASE_FILE)
 				openFlags |= O_TRUNC;
 			if (openMode & B_OPEN_AT_END)

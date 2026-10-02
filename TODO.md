@@ -154,6 +154,17 @@ Cosmoe is designed to be as compatible as possible with Haiku/Be code, but there
 - BFont.StringWidth() takes an extra optional parameter in Cosmoe to set scaling mode
   - If you were originally passing something besides an int32 into the second parameter, you'll need to cast to int32 to avoid an ambigious call between the 2 StringWidth methods.
 
+- Apps that need runtime lookup of their own Class::Instantiate(BMessage*) symbols need the following linker flags in their Makefile. Apps using only the built-in archivable classes do not need it.
+	ifeq ($(shell uname -s),Linux)
+	LINKER_FLAGS += -Wl,--export-dynamic
+	endif
+	ifeq ($(shell uname -s),Darwin)
+	LINKER_FLAGS += -Wl,-export_dynamic
+	endif
+	# Windows support for runtime lookup is uncertain at this point
+	# May rely on --export-all-symbols and/or explicit exports via .def file or __declspec(dllexport)
+	# meson-based builds should use "export_dynamic: true" in the executable definition, which handles all platforms
+
 
 ## Unit tests issues for drawing
 
