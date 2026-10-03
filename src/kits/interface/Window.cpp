@@ -539,16 +539,19 @@ BWindow::_DrawPointerTrackingOverlayLocked(cairo_t* cr)
 				int32 height = (int32)bounds.IntegerHeight() + 1;
 				if (width > 0 && height > 0) {
 					uint8* sourceBits = bits;
+					cairo_format_t format = bitmap->ColorSpace() == B_CMAP8
+						? CAIRO_FORMAT_RGB24 : CAIRO_FORMAT_ARGB32;
+					int32 stride = cairo_format_stride_for_width(format, width);
 					if (!prepare_bitmap_bits_for_cairo_argb32(bits,
-							CAIRO_FORMAT_ARGB32, bitmap->ColorSpace(), width,
-							height, bitmap->BytesPerRow(),
+							format, bitmap->ColorSpace(), width, height,
+							bitmap->BytesPerRow(), stride,
 							(const uint8**)&sourceBits,
 							&premultipliedBits)) {
 						return;
 					}
 
 					imageSurface = cairo_image_surface_create_for_data(sourceBits,
-						CAIRO_FORMAT_ARGB32, width, height, bitmap->BytesPerRow());
+						format, width, height, stride);
 					destroySurface = imageSurface != NULL;
 				}
 			}
@@ -1356,6 +1359,29 @@ apply_linux_semantic_modifier_state(uint32 key, bool pressed, uint32& modifiers)
 #endif
 
 
+static bool
+key_updates_modifiers(uint32 key)
+{
+	switch (key) {
+		case KEY_LEFTSHIFT:
+		case KEY_RIGHTSHIFT:
+		case KEY_LEFTCTRL:
+		case KEY_RIGHTCTRL:
+		case KEY_LEFTALT:
+		case KEY_RIGHTALT:
+		case KEY_LEFTMETA:
+		case KEY_RIGHTMETA:
+		case KEY_MENU:
+		case KEY_CAPSLOCK:
+		case KEY_SCROLLLOCK:
+		case KEY_NUMLOCK:
+			return true;
+		default:
+			return false;
+	}
+}
+
+
 void
 key_handler(struct window *window, struct input *input, uint32_t time,
 	    uint32_t key, uint32_t sym,
@@ -1610,13 +1636,18 @@ key_handler(struct window *window, struct input *input, uint32_t time,
 			& (B_CAPS_LOCK | B_SCROLL_LOCK | B_NUM_LOCK);
 	}
 
-	if (newModifiers != oldModifiers) {
+	const bool modifiersChanged = newModifiers != oldModifiers;
+	if (modifiersChanged) {
 		set_modifiers(newModifiers);
 		BWindow::SendModifiersEvent(callbackWindow, key, newModifiers,
 			oldModifiers);
-	} else {
-		BWindow::SendKeyEvent(callbackWindow, key, sym, what, newModifiers);
 	}
+
+	// Modifier keys only update modifier state. A character key that arrives
+	// in the same event as a modifier change still has to be delivered, or
+	// chords such as Ctrl+C never reach the focus view.
+	if (!modifiersChanged || !key_updates_modifiers(key))
+		BWindow::SendKeyEvent(callbackWindow, key, sym, what, newModifiers);
 }
 
 // Callback invoked by the graphics backend when the window moves.
@@ -5547,6 +5578,25 @@ BWindow::_TransitForMouseMoved(BView* view, BView* viewUnderMouse) const
 }
 
 
+static bool
+linux_command_key_is_control()
+{
+#ifdef __linux__
+	BKeymap keymap;
+	if (keymap.SetToCurrent() != B_OK)
+		return false;
+
+	const key_map& map = keymap.Map();
+	return (map.left_command_key != 0
+			&& map.left_command_key == map.left_control_key)
+		|| (map.right_command_key != 0
+			&& map.right_command_key == map.right_control_key);
+#else
+	return false;
+#endif
+}
+
+
 /*!	Handles keyboard input before it gets forwarded to the target handler.
 	This includes shortcut evaluation, keyboard navigation, etc.
 
@@ -5685,8 +5735,10 @@ BWindow::_HandleKeyDown(BMessage* event)
 			return true;
 	}
 
-	if ((modifiers & B_COMMAND_KEY) != 0) {
-		// we always eat the event if the command key was pressed
+	if ((modifiers & B_COMMAND_KEY) != 0 && !linux_command_key_is_control()) {
+		// Command is a shortcut modifier, not a character, when it is a
+		// distinct key. When it is aliased to Control, an unmatched chord is
+		// a control character and must reach the focus view.
 		return true;
 	}
 
