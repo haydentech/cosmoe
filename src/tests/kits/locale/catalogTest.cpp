@@ -191,17 +191,17 @@ main(int argc, char **argv)
 	CatalogTest catTest;
 	catTest.Run();
 
-	// char cwd[B_FILE_NAME_LENGTH];
-	// getcwd(cwd, B_FILE_NAME_LENGTH);
-	// BString addonName(cwd);
-	// addonName << "/" "catalogTestAddOn";
-	// image_id image = load_add_on(addonName.String());
-	// assert(image != NULL);
-	// void (*runAddonFunc)() = 0;
-	// get_image_symbol(image, "run_test_add_on",
-	// 	B_SYMBOL_TYPE_TEXT, (void **)&runAddonFunc);
-	// assert(runAddonFunc);
-	// runAddonFunc();
+	char cwd[B_FILE_NAME_LENGTH];
+	getcwd(cwd, B_FILE_NAME_LENGTH);
+	BString addonName(cwd);
+	addonName << "/" "catalogTestAddOn";
+	image_id image = load_add_on(addonName.String());
+	assert(image >= B_OK);
+	void (*runAddonFunc)() = 0;
+	get_image_symbol(image, "run_test_add_on",
+		B_SYMBOL_TYPE_TEXT, (void **)&runAddonFunc);
+	assert(runAddonFunc);
+	runAddonFunc();
 
 	catTest.Check();
 

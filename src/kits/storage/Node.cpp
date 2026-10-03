@@ -603,7 +603,15 @@ BNode::_SetTo(const entry_ref* ref, bool traverse)
 		return (fCStatus = B_BAD_VALUE);
 	}
 
-	return _SetTo(-1, ref->name, traverse);
+	char path[B_PATH_NAME_LENGTH];
+	status_t error = _kern_entry_ref_to_path(ref->device, ref->directory,
+		ref->name, path, sizeof(path));
+	if (error != B_OK) {
+		Unset();
+		return (fCStatus = error);
+	}
+
+	return _SetTo(-1, path, traverse);
 }
 
 

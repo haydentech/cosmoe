@@ -68,9 +68,6 @@
   - See `src/system/kernel/thread.cpp`.
   - Doing this dynamically turns out to probably be harder than it's worth, as this is not used very often, and when it is, very small amounts of data are passed.
 
-- Unit tests are not quite 100% passing yet
-  - NodeInfo tests still have a failing test regarding tracker icons
-
 - Tracker/libtracker/Deskbar bugs
   - "Get Info" on a file can sometimes hang Tracker (haven't seen this in a while)
   - Dragging a file/folder to a new window (e.g. to copy/move it to a new location) does not work
@@ -116,8 +113,6 @@
 
 - Deskbar doesn't support closing an app's window(s) (Mac or Windows)
   - The larger issue is that we don't yet have a way to deliver BMessages across apps on those platforms
-
-- StyledEdit crashes on exit (Wayland)
 
 
 ## Cosmoe porting notes
