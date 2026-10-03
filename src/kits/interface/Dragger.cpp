@@ -602,7 +602,7 @@ BDragger::_UpdateShowAllDraggers(bool visible)
 void
 BDragger::_InitData()
 {
-	fBitmap = new BBitmap(BRect(0.0f, 0.0f, 7.0f, 7.0f), B_RGB32, false, false);
+	fBitmap = new BBitmap(BRect(0.0f, 0.0f, 7.0f, 7.0f), B_CMAP8, false, false);
 	fBitmap->SetBits(kHandBitmap, fBitmap->BitsLength(), 0, B_CMAP8);
 }
 

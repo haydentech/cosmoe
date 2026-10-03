@@ -767,7 +767,6 @@ Scaler::Limit(intType value)
 void
 Scaler::Dither(int32 fromRow, int32 toRow)
 {
-#if 0
 	BBitmap* src;
 	BBitmap* dest;
 	intType destW;
@@ -919,7 +918,6 @@ Scaler::Dither(int32 fromRow, int32 toRow)
 	}
 
 	delete[] columnData0;
-#endif
 }
 
 

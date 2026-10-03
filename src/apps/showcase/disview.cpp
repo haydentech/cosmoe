@@ -9,6 +9,7 @@
 #include <IconUtils.h>
 #include <ControlLook.h>
 #include <Bitmap.h>
+#include <Screen.h>
 #include <Shape.h>
 
 #include <cstdio>
@@ -308,4 +309,19 @@ void DisView::Draw(BRect rect)
 	drawRect.right += 50;
 	drawRect.bottom += 60;
 	CopyBits(BRect(5, 60, 5 + w, 60 + h), drawRect);
+
+	BBitmap cmap8Bitmap(BRect(0, 0, 15, 5), B_CMAP8);
+	BScreen screen;
+	const uint8 indices[] = {
+		screen.IndexForColor(255, 0, 0),
+		screen.IndexForColor(0, 255, 0),
+		screen.IndexForColor(0, 0, 255),
+		screen.IndexForColor(255, 255, 255)
+	};
+	uint8* bits = (uint8*)cmap8Bitmap.Bits();
+	for (int32 y = 0; y < 6; y++) {
+		for (int32 x = 0; x < 16; x++)
+			bits[y * cmap8Bitmap.BytesPerRow() + x] = indices[x / 4];
+	}
+	DrawBitmap(&cmap8Bitmap, BRect(205, 278, 268, 301));
 }

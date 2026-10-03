@@ -73,6 +73,8 @@ static cairo_format_t color_space_to_cairo_format(color_space space)
 
 	switch(space)
 	{
+		case B_CMAP8:
+			return CAIRO_FORMAT_RGB24;
 		case B_RGB24:
 		case B_RGB32:
 			return CAIRO_FORMAT_RGB24;

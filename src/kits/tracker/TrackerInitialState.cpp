@@ -254,8 +254,8 @@ TTracker::InstallMimeIfNeeded(const char* type, int32 bitsID,
 	// be passed for attributes that don't matter; returns true if anything
 	// had to be changed
 
-	BBitmap largeIcon(BRect(0, 0, 31, 31), B_BITMAP_NO_SERVER_LINK, B_RGBA32);
-	BBitmap miniIcon(BRect(0, 0, 15, 15), B_BITMAP_NO_SERVER_LINK, B_RGBA32);
+	BBitmap largeIcon(BRect(0, 0, 31, 31), B_BITMAP_NO_SERVER_LINK, B_CMAP8);
+	BBitmap miniIcon(BRect(0, 0, 15, 15), B_BITMAP_NO_SERVER_LINK, B_CMAP8);
 	char tmp[B_MIME_TYPE_LENGTH];
 
 	BMimeType mime(type);
