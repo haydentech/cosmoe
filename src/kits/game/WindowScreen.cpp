@@ -343,7 +343,7 @@ BWindowScreen::SetColorList(rgb_color *list, int32 firstIndex, int32 lastIndex)
 			colors[j++] = fPalette[x].blue;
 		}
 
-		if (fAddonImage != NULL) {
+		if (fAddonImage >= 0) {
 			set_indexed_colors setIndexedColors
 				= (set_indexed_colors)fGetAccelerantHook(B_SET_INDEXED_COLORS,
 					NULL);
@@ -453,7 +453,7 @@ graphics_card_hook
 BWindowScreen::CardHookAt(int32 index)
 {
 	CALLED();
-	if (fAddonImage == NULL)
+	if (fAddonImage < 0)
 		return NULL;
 
 	graphics_card_hook hook = NULL;
@@ -582,7 +582,7 @@ BWindowScreen::_InitData(uint32 space, uint32 attributes)
 
 	fWorkspaceIndex = fDebugWorkspace = current_workspace();
 	fLockState = 0;
-	fAddonImage = NULL;
+	fAddonImage = -1;
 	fWindowState = 0;
 	fOriginalDisplayMode = NULL;
 	fDisplayMode = NULL;
@@ -643,9 +643,9 @@ BWindowScreen::_DisposeData()
 {
 	CALLED();
 	Disconnect();
-	if (fAddonImage != NULL) {
+	if (fAddonImage >= 0) {
 		unload_add_on(fAddonImage);
-		fAddonImage = NULL;
+		fAddonImage = -1;
 	}
 
 	delete_sem(fDebugSem);
@@ -690,11 +690,12 @@ status_t
 BWindowScreen::_Activate()
 {
 	CALLED();
-	status_t status = _AssertDisplayMode(fDisplayMode);
+
+	status_t status = _SetupAccelerantHooks();
 	if (status < B_OK)
 		return status;
 
-	status = _SetupAccelerantHooks();
+	status = _AssertDisplayMode(fDisplayMode);
 	if (status < B_OK)
 		return status;
 
@@ -754,7 +755,7 @@ BWindowScreen::_SetupAccelerantHooks()
 	CALLED();
 
 	status_t status = B_OK;
-	if (fAddonImage != NULL)
+	if (fAddonImage < 0)
 		status = _InitClone();
 	else
 		_ResetAccelerantHooks();
@@ -949,7 +950,7 @@ BWindowScreen::_InitClone()
 {
 	CALLED();
 
-	if (fAddonImage != NULL)
+	if (fAddonImage >= 0)
 		return B_OK;
 
 	BScreen screen(this);
@@ -976,9 +977,9 @@ BWindowScreen::_InitClone()
 	link.ReadString(driverPath);
 
 	fAddonImage = load_add_on(accelerantPath.String());
-	if (fAddonImage = NULL) {
+	if (fAddonImage < B_OK) {
 		fprintf(stderr, "InitClone: cannot load accelerant image\n");
-		return B_ERROR;
+		return fAddonImage;
 	}
 
 	status = get_image_symbol(fAddonImage, B_ACCELERANT_ENTRY_POINT,
@@ -986,7 +987,7 @@ BWindowScreen::_InitClone()
 	if (status < B_OK) {
 		fprintf(stderr, "InitClone: cannot get accelerant entry point\n");
 		unload_add_on(fAddonImage);
-		fAddonImage = NULL;
+		fAddonImage = -1;
 		return B_NOT_SUPPORTED;
 	}
 
@@ -995,7 +996,7 @@ BWindowScreen::_InitClone()
 	if (cloneHook == NULL) {
 		fprintf(stderr, "InitClone: cannot get clone hook\n");
 		unload_add_on(fAddonImage);
-		fAddonImage = NULL;
+		fAddonImage = -1;
 		return B_NOT_SUPPORTED;
 	}
 
@@ -1003,7 +1004,7 @@ BWindowScreen::_InitClone()
 	if (status < B_OK) {
 		fprintf(stderr, "InitClone: cannot clone accelerant\n");
 		unload_add_on(fAddonImage);
-		fAddonImage = NULL;
+		fAddonImage = -1;
 	}
 
 	return status;

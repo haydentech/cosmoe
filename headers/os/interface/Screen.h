@@ -28,6 +28,12 @@ public:
 			BRect				Frame();
 			screen_id			ID();
 
+			uint8				IndexForColor(rgb_color color);
+			uint8				IndexForColor(uint8 red, uint8 green,
+									uint8 blue, uint8 alpha = 255);
+			rgb_color			ColorForIndex(uint8 index);
+			uint8				InvertIndex(uint8 index);
+
 			const color_map*	ColorMap();
 
 			rgb_color			DesktopColor();
@@ -43,5 +49,11 @@ private:
 			BScreen&			operator=(const BScreen& other);
 };
 
+
+inline uint8
+BScreen::IndexForColor(rgb_color color)
+{
+	return IndexForColor(color.red, color.green, color.blue, color.alpha);
+}
 
 #endif // _SCREEN_H

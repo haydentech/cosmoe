@@ -3,6 +3,7 @@
 
 #include <GraphicsDefs.h>
 #include <SupportDefs.h>
+#include <ColorConversion.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -122,7 +123,7 @@ premultiply_rgba_row_sse2(const uint8* srcRow, uint8* dstRow, int32 width)
 static inline bool
 prepare_bitmap_bits_for_cairo_argb32(const uint8* sourceBits,
 	cairo_format_t format, color_space sourceColorSpace, int32 width,
-	int32 height, int32 stride, const uint8** outBits,
+	int32 height, int32 sourceStride, int32 cairoStride, const uint8** outBits,
 	uint8** outOwnedPremultipliedBits, bool forceOpaque = false)
 {
 	if (outBits == NULL || outOwnedPremultipliedBits == NULL)
@@ -134,26 +135,48 @@ prepare_bitmap_bits_for_cairo_argb32(const uint8* sourceBits,
 	if (sourceBits == NULL)
 		return false;
 
+	if (width <= 0 || height <= 0 || sourceStride <= 0 || cairoStride <= 0)
+		return false;
+
+	if (format == CAIRO_FORMAT_RGB24 && sourceColorSpace == B_CMAP8) {
+		uint8* expandedBits = (uint8*)malloc(cairoStride * height);
+		if (expandedBits == NULL)
+			return false;
+
+		memset(expandedBits, 0, cairoStride * height);
+		status_t status = BPrivate::ConvertBits(sourceBits, expandedBits,
+			sourceStride * height, cairoStride * height, sourceStride, cairoStride,
+			B_CMAP8, B_RGB32, width, height);
+		if (status != B_OK) {
+			free(expandedBits);
+			return false;
+		}
+
+		*outBits = expandedBits;
+		*outOwnedPremultipliedBits = expandedBits;
+		return true;
+	}
+
 	if (format != CAIRO_FORMAT_ARGB32 || sourceColorSpace != B_RGBA32)
 		return true;
 
-	if (width <= 0 || height <= 0 || stride <= 0)
+	if (sourceStride < width * 4 || cairoStride < width * 4)
 		return false;
 
-	int32 bufferSize = stride * height;
+	int32 bufferSize = cairoStride * height;
 	uint8* premultipliedBits = (uint8*)malloc(bufferSize);
 	if (premultipliedBits == NULL)
 		return false;
 
 	for (int32 y = 0; y < height; y++) {
-		const uint8* srcRow = sourceBits + y * stride;
-		uint8* dstRow = premultipliedBits + y * stride;
+		const uint8* srcRow = sourceBits + y * sourceStride;
+		uint8* dstRow = premultipliedBits + y * cairoStride;
 		if (forceOpaque) {
 			force_opaque_rgba_row_scalar(srcRow, dstRow, width);
-			if (stride > width * 4)
-				memcpy(dstRow + width * 4, srcRow + width * 4, stride - width * 4);
+			if (cairoStride > width * 4)
+				memset(dstRow + width * 4, 0, cairoStride - width * 4);
 		} else {
-			memcpy(dstRow, srcRow, stride);
+			memset(dstRow, 0, cairoStride);
 #if (defined(__i386__) || defined(__x86_64__)) && defined(__SSE2__)
 			premultiply_rgba_row_sse2(srcRow, dstRow, width);
 #else

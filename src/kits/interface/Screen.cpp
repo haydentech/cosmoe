@@ -95,6 +95,44 @@ BScreen::ID()
 }
 
 
+uint8
+BScreen::IndexForColor(uint8 red, uint8 green, uint8 blue, uint8 alpha)
+{
+	if (red == B_TRANSPARENT_32_BIT.red
+		&& green == B_TRANSPARENT_32_BIT.green
+		&& blue == B_TRANSPARENT_32_BIT.blue
+		&& alpha == B_TRANSPARENT_32_BIT.alpha) {
+		return B_TRANSPARENT_8_BIT;
+	}
+
+	const color_map* colorMap = ColorMap();
+	uint16 index = ((red & 0xf8) << 7) | ((green & 0xf8) << 2) | (blue >> 3);
+	return colorMap != NULL ? colorMap->index_map[index] : 0;
+}
+
+
+rgb_color
+BScreen::ColorForIndex(const uint8 index)
+{
+	const color_map* colorMap = ColorMap();
+	if (colorMap != NULL)
+		return colorMap->color_list[index];
+
+	return rgb_color();
+}
+
+
+uint8
+BScreen::InvertIndex(uint8 index)
+{
+	const color_map* colorMap = ColorMap();
+	if (colorMap != NULL)
+		return colorMap->inversion_map[index];
+
+	return 0;
+}
+
+
 const color_map*
 BScreen::ColorMap()
 {

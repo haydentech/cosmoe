@@ -2081,16 +2081,16 @@ ChartWindow::SetColorSpace(buffer *buf, color_space depth)
 	switch (buf->depth_mode) {
 		case PIXEL_1_BYTE :
 			/* 8 bits, indexed mode */
-			// for (i=0; i<7*8; i++) {
-			// 	ref_color = color_list[i>>3];
-			// 	ref_color.red   = (ref_color.red*light_gradient[i&7])>>16;
-			// 	ref_color.green = (ref_color.green*light_gradient[i&7])>>16;
-			// 	ref_color.blue  = (ref_color.blue*light_gradient[i&7])>>16;
-			// 	color = screen.IndexForColor(ref_color);
-			// 	col[i] = (color<<24) | (color<<16) | (color<<8) | color;
-			// }
-			// color = screen.IndexForColor(fCurrentSettings.back_color);
-			// buf->back_color = (color<<24) | (color<<16) | (color<<8) | color;
+			for (i=0; i<7*8; i++) {
+				ref_color = color_list[i>>3];
+				ref_color.red   = (ref_color.red*light_gradient[i&7])>>16;
+				ref_color.green = (ref_color.green*light_gradient[i&7])>>16;
+				ref_color.blue  = (ref_color.blue*light_gradient[i&7])>>16;
+				color = screen.IndexForColor(ref_color);
+				col[i] = (color<<24) | (color<<16) | (color<<8) | color;
+			}
+			color = screen.IndexForColor(fCurrentSettings.back_color);
+			buf->back_color = (color<<24) | (color<<16) | (color<<8) | color;
 			break;
 		case PIXEL_2_BYTES :
 		case PIXEL_4_BYTES :

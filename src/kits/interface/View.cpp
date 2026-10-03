@@ -2965,7 +2965,8 @@ BView::DrawBitmapAsync(const BBitmap* bitmap, BRect bitmapRect /* source */, BRe
 
 	const unsigned char* sourceBits = (const unsigned char*)bitmap->Bits();
 	if (!prepare_bitmap_bits_for_cairo_argb32((const uint8*)sourceBits,
-			format, bitmap->ColorSpace(), width, height, stride,
+			format, bitmap->ColorSpace(), width, height, bitmap->BytesPerRow(),
+			stride,
 			(const uint8**)&sourceBits, (uint8**)&premultipliedBits,
 			fState->drawing_mode == B_OP_COPY)) {
 		return;
@@ -3261,7 +3262,8 @@ BView::DrawBitmapAsync(const BBitmap* bitmap, BPoint where)
 		} else {
 			const unsigned char* sourceBits = (const unsigned char*)bitmap->Bits();
 			if (!prepare_bitmap_bits_for_cairo_argb32((const uint8*)sourceBits,
-					format, bitmap->ColorSpace(), width, height, stride,
+					format, bitmap->ColorSpace(), width, height,
+					bitmap->BytesPerRow(), stride,
 					(const uint8**)&sourceBits, (uint8**)&premultipliedBits,
 					fState->drawing_mode == B_OP_COPY)) {
 				return;

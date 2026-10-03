@@ -15,7 +15,7 @@
 #include <ControlLook.h>
 #include <Debug.h>
 #include <PropertyInfo.h>
-//#include <Screen.h>
+#include <Screen.h>
 #include <Window.h>
 
 
@@ -624,17 +624,17 @@ BChannelSlider::ThumbFor(int32 channel, bool pressed)
 
 	if (fIsVertical) {
 		fLeftKnob = new (std::nothrow) BBitmap(BRect(0, 0, 11, 14),
-			B_RGB32);
+			B_CMAP8);
 		if (fLeftKnob != NULL) {
-			fLeftKnob->ImportBits(kVerticalKnobData,
-					sizeof(kVerticalKnobData), 12, 0, B_CMAP8);
+			fLeftKnob->SetBits(kVerticalKnobData,
+					sizeof(kVerticalKnobData), 0, B_CMAP8);
 		}
 	} else {
-		fLeftKnob = new (std::nothrow) BBitmap(BRect(0, 0, 15, 11),
-			B_RGB32);
+		fLeftKnob = new (std::nothrow) BBitmap(BRect(0, 0, 14, 11),
+			B_CMAP8);
 		if (fLeftKnob != NULL) {
-			fLeftKnob->ImportBits(kHorizontalKnobData,
-					sizeof(kHorizontalKnobData), 16, 0, B_CMAP8);
+			fLeftKnob->SetBits(kHorizontalKnobData,
+					sizeof(kHorizontalKnobData), 0, B_CMAP8);
 		}
 	}
 

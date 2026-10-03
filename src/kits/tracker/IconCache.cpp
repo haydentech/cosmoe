@@ -1349,12 +1349,12 @@ void
 IconCache::InitHighlightTable()
 {
 	// build the color transform tables for different icon modes
-	// BScreen screen(B_MAIN_SCREEN_ID);
-	// rgb_color color;
-	// for (int32 index = 0; index < kColorTransformTableSize; index++) {
-	// 	color = screen.ColorForIndex((uchar)index);
-	// 	fHighlightTable[index] = screen.IndexForColor(tint_color(color, 1.3f));
-	// }
+	BScreen screen(B_MAIN_SCREEN_ID);
+	rgb_color color;
+	for (int32 index = 0; index < kColorTransformTableSize; index++) {
+		color = screen.ColorForIndex((uchar)index);
+		fHighlightTable[index] = screen.IndexForColor(tint_color(color, 1.3f));
+	}
 
 	fHighlightTable[B_TRANSPARENT_8_BIT] = B_TRANSPARENT_8_BIT;
 	fInitHighlightTable = false;
