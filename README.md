@@ -5,7 +5,8 @@
 Welcome to Cosmoe!
 https://www.cosmoe.org
 
-
+Questions?  Suggestions?  Want to contribute?
+[Join our Discord!](https://discord.gg/9ggmcsJaW)
 
 WHAT IS COSMOE
 --------------

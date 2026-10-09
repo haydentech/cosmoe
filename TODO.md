@@ -114,6 +114,10 @@
 - Deskbar doesn't support closing an app's window(s) (Mac or Windows)
   - The larger issue is that we don't yet have a way to deliver BMessages across apps on those platforms
 
+- listres conflicts with the x11-utils utility of the same name
+  - This causes an install conflict when installing the Cosmoe deb's
+
+- need cosmoe-desktop deb with labwc/mako prereqs
 
 ## Cosmoe porting notes
 
