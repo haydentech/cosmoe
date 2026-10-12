@@ -70,3 +70,20 @@ Depends:
 Description: applications bundled with the Cosmoe framework
  This package contains the sample applications, desktop integrations, and
  command-line tools bundled with the Cosmoe framework.
+
+Package: cosmoe-desktop
+Section: x11
+Architecture: any
+Depends:
+ cosmoe (= ${binary:Version}),
+ cosmoe-apps (= ${binary:Version}),
+ labwc,
+ mako-notifier,
+ dbus-daemon,
+ policykit-1-gnome,
+ xdg-desktop-portal,
+ xdg-desktop-portal-wlr,
+ ${misc:Depends}
+Description: Cosmoe Wayland desktop session
+ This package provides the Cosmoe Wayland desktop session, including Tracker,
+ Deskbar, and a display-manager session entry.

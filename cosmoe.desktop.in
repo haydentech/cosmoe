@@ -3,3 +3,4 @@ Name=Cosmoe Desktop
 Comment=Cosmoe Desktop
 Exec=@COSMOE_DESKTOP_EXEC@
 Type=Application
+DesktopNames=Cosmoe

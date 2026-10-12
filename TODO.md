@@ -117,7 +117,6 @@
 - listres conflicts with the x11-utils utility of the same name
   - This causes an install conflict when installing the Cosmoe deb's
 
-- need cosmoe-desktop deb with labwc/mako prereqs
 
 ## Cosmoe porting notes
 
@@ -130,8 +129,6 @@ Cosmoe is designed to be as compatible as possible with Haiku/Be code, but there
 
 - `entry_ref` must always contain a full path in the name field on Cosmoe.
   - Many apps assume there will be just the leaf name in there, as would be expected on Haiku, so additional code is required if you need to extract just the leaf name.
-
-- `B_CMAP8` is not a valid color space for drawing.
 
 - `BRecentFilesList` / `BRecentFolderList` / `BRecentAppList` are per-app per-launch lists, not system-wide and remembered
 
