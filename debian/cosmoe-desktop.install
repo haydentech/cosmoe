@@ -1,0 +1,14 @@
+usr/bin/Deskbar
+usr/bin/DeskbarPreferences
+usr/bin/Tracker
+usr/bin/TrackerPreferences
+usr/bin/cosmoe-desktop.sh
+usr/share/applications/x-vnd.Be-TSKB.desktop
+usr/share/applications/x-vnd.Cosmoe-Tracker.desktop
+usr/share/applications/x-vnd.Haiku-Deskbar-Preferences.desktop
+usr/share/applications/x-vnd.Haiku-TrackerPreferences.desktop
+usr/share/icons/hicolor/*/apps/deskbar.png
+usr/share/icons/hicolor/*/apps/deskbarpreferences.png
+usr/share/icons/hicolor/*/apps/tracker.png
+usr/share/icons/hicolor/*/apps/trackerpreferences.png
+usr/share/wayland-sessions/cosmoe.desktop

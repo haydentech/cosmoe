@@ -54,6 +54,7 @@ documentation
 /media
 debian/cosmoe
 debian/.debhelper
+debian/cosmoe-desktop
 debian/cosmoe-apps
 debian/cosmoe-dev
 debian/cosmoe
