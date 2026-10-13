@@ -45,7 +45,6 @@ usr/share/applications/x-vnd.Haiku-StyledEdit.desktop
 usr/share/applications/x-vnd.Haiku-Sudoku.desktop
 usr/share/applications/x-vnd.Haiku-Terminal.desktop
 usr/share/applications/x-vnd.Haiku-Time.desktop
-usr/share/applications/x-vnd.Haiku-WebPositive.desktop
 usr/share/applications/x-vnd.haiku-icon_o_matic.desktop
 usr/share/applications/x-vnd.minimal-noui.desktop
 usr/share/applications/x-vnd.minimal.desktop
@@ -74,4 +73,3 @@ usr/share/icons/hicolor/*/apps/stylededit.png
 usr/share/icons/hicolor/*/apps/sudoku.png
 usr/share/icons/hicolor/*/apps/terminal.png
 usr/share/icons/hicolor/*/apps/time.png
-usr/share/icons/hicolor/*/apps/webpositive.png
