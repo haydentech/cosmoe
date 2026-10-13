@@ -22,6 +22,8 @@ endif
 ifeq ($(UNAME_S), Darwin)
 	# Add Homebrew ICU path to PKG_CONFIG_PATH for macOS
 	export PKG_CONFIG_PATH := /opt/homebrew/opt/icu4c/lib/pkgconfig:$(PKG_CONFIG_PATH)
+	MAKEFILE_ENGINE_DIR := $(dir $(abspath $(lastword $(MAKEFILE_LIST))))
+	MACOS_BUNDLE_SCRIPT ?= $(MAKEFILE_ENGINE_DIR)macos-bundle.sh
 endif
 
 # Set up defaults.
@@ -58,6 +60,7 @@ EFFECTIVE_INSTALL_DIR := $(if $(INSTALL_DIR),$(INSTALL_DIR),$(DEFAULT_INSTALL_DI
 
 MIMESET	:= mimeset
 RESCOMP	:= rc
+VICN2ICNS := vicn2icns
 ifeq ($(strip $(CC)),)
 	CC	:= cc
 endif
@@ -343,6 +346,8 @@ else
 	RSRC_OBJS := $(call RSRCS_LIST_TO_OBJS,$(RSRCS))
 endif
 
+.PRECIOUS: $(RSRCS)
+
 # Set the directory for internationalization sources (catkeys) if it isn't
 # already.
 CATKEYS_DIR	:= locales
@@ -378,7 +383,12 @@ ifeq ($(UNAME_S), Darwin)
 	MAC_INCLUDE_DIR := $(MAC_MOUNT_POINT)/include
 	MAC_IMAGE_PATH := $(HOME)/.cosmoe-builds/$(MAC_IMAGE_NAME).sparseimage
 	MAC_BUILD_ROOT := $(MAC_MOUNT_POINT)/builds
-	MAC_BUILD_DIR := $(MAC_BUILD_ROOT)/$(MAC_SOURCE_BASENAME)
+	MAC_BUILD_SUBDIR ?= $(MAC_SOURCE_BASENAME)
+	MAC_BUILD_DIR := $(MAC_BUILD_ROOT)/$(MAC_BUILD_SUBDIR)
+	MAC_STAGED_DIRECTORIES ?=
+	# Backends are loaded with dlopen(), so they are not visible to otool's
+	# dependency walk. Bundle the platform backend explicitly.
+	MACOS_BUNDLE_EXTRA_LIBRARIES ?= $(COSMOE_LIB_ROOT)/libcosmoe-cocoa.dylib
 	
 	# Check if we're already running on the case-sensitive image
 	MAC_ON_IMAGE := $(shell df "$(MAC_SOURCE_DIR)" 2>/dev/null | grep -q " $(MAC_MOUNT_POINT)$$" && echo yes || echo no)
@@ -440,6 +450,16 @@ ifeq ($(UNAME_S), Darwin)
 		    --exclude='*.so' \
 		    --exclude='.git' \
 		    "$(MAC_SOURCE_DIR)/" "$(MAC_BUILD_DIR)/"
+		@for entry in $(MAC_STAGED_DIRECTORIES); do \
+		    source=$${entry%%:*}; \
+		    destination=$${entry#*:}; \
+		    if [ ! -d "$$source" ] || [ "$$source" = "$$destination" ]; then \
+		        echo "Invalid staged directory: $$entry" >&2; \
+		        exit 1; \
+		    fi; \
+		    mkdir -p "$(MAC_BUILD_ROOT)/$$destination"; \
+		    rsync -a --delete "$$source/" "$(MAC_BUILD_ROOT)/$$destination/"; \
+		done
 		@echo "✓ Source synced"
     else
         # We're already on the case-sensitive image - do normal build
@@ -614,9 +634,44 @@ mac-distclean: mac-unmount
 	fi
 endif
 
+ifeq ($(UNAME_S), Darwin)
+ifeq ($(strip $(TYPE)), APP)
+install :: default
+	@BUNDLE_DIR="$(DESTDIR)$(COSMOE_INSTALL_ROOT)/Applications/$(NAME).app"; \
+	COSMOE_BUNDLE_LIBRARY_PATHS="$(COSMOE_LIB_ROOT):/opt/homebrew/lib:/usr/local/lib" \
+	COSMOE_BUNDLE_EXTRA_LIBRARIES="$(MACOS_BUNDLE_EXTRA_LIBRARIES)" \
+		sh "$(MACOS_BUNDLE_SCRIPT)" "$$BUNDLE_DIR" "$(TARGET)"; \
+	if [ -n "$(strip $(APP_ICON))" ]; then \
+		mkdir -p "$$BUNDLE_DIR/Contents/Resources"; \
+		"$(VICN2ICNS)" "$(APP_ICON)" "$$BUNDLE_DIR/Contents/Resources/$(NAME).icns"; \
+	fi; \
+	{ \
+		printf '%s\n' '<?xml version="1.0" encoding="UTF-8"?>'; \
+		printf '%s\n' '<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">'; \
+		printf '%s\n' '<plist version="1.0">' '<dict>'; \
+		printf '%s\n' '    <key>CFBundleExecutable</key>' '    <string>$(NAME)</string>'; \
+		printf '%s\n' '    <key>CFBundleIdentifier</key>' '    <string>org.cosmoe.$(NAME)</string>'; \
+		printf '%s\n' '    <key>CFBundleName</key>' '    <string>$(NAME)</string>'; \
+		printf '%s\n' '    <key>CFBundlePackageType</key>' '    <string>APPL</string>'; \
+		if [ -n "$(strip $(APP_ICON))" ]; then \
+			printf '%s\n' '    <key>CFBundleIconFile</key>' '    <string>$(NAME).icns</string>'; \
+		fi; \
+		printf '%s\n' '    <key>CFBundleShortVersionString</key>' '    <string>1.0</string>'; \
+		printf '%s\n' '    <key>CFBundleVersion</key>' '    <string>1</string>'; \
+		printf '%s\n' '    <key>NSHighResolutionCapable</key>' '    <true/>' '</dict>' '</plist>'; \
+	} > "$$BUNDLE_DIR/Contents/Info.plist"; \
+	find "$$BUNDLE_DIR/Contents/Frameworks" -type f -exec codesign --force --sign - {} \; && \
+	codesign --force --sign - "$$BUNDLE_DIR"
+else
 install :: default
 	mkdir -p "$(DESTDIR)$(EFFECTIVE_INSTALL_DIR)"
 	cp $(TARGET) "$(DESTDIR)$(EFFECTIVE_INSTALL_DIR)"/$(NAME)
+endif
+else
+install :: default
+	mkdir -p "$(DESTDIR)$(EFFECTIVE_INSTALL_DIR)"
+	cp $(TARGET) "$(DESTDIR)$(EFFECTIVE_INSTALL_DIR)"/$(NAME)
+endif
 
 # Set the catalog installation directory if it isn't already.
 CATALOG_INSTALL_DIR := $(shell finddir B_USER_NONPACKAGED_DATA_DIRECTORY)/locale/catalogs

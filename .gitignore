@@ -46,6 +46,7 @@ parser.*pp
 oprofile_data
 src/bin/rc/tests/*.rsrc
 src/tests/system/kernel/Makefile
+src/apps/showcase/objects.*
 out
 cosmoe.html
 .vscode/settings.json
