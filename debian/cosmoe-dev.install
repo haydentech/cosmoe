@@ -14,7 +14,6 @@ usr/bin/hey
 usr/bin/listattr
 usr/bin/listres
 usr/bin/message
-usr/bin/mimeset
 usr/bin/mkdepend
 usr/bin/rc
 usr/bin/roster

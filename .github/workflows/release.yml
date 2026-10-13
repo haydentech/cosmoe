@@ -99,9 +99,50 @@ jobs:
           path: debian/packages/*.deb
 
 
+  package-rpm:
+    name: Build Fedora RPM Packages
+    needs: build-and-test
+    runs-on: ubuntu-latest
+
+    container:
+      image: registry.fedoraproject.org/fedora:44
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v6
+
+      - name: Install build dependencies
+        run: |
+          dnf install -y \
+            rpm-build \
+            gcc gcc-c++ \
+            meson ninja-build pkgconf-pkg-config \
+            flex bison \
+            cairo-devel fontconfig-devel freetype-devel glib2-devel \
+            libicns-devel libicu-devel libjpeg-turbo-devel \
+            pango-devel pixman-devel libpng-devel LibRaw-devel libtiff-devel \
+            wayland-devel libwebp-devel \
+            libX11-devel libXcursor-devel libXrandr-devel \
+            libxkbcommon-devel fuse3-devel zlib-ng-compat-devel
+
+      - name: Build RPM packages
+        run: make rpm
+
+      - name: Show generated packages
+        run: |
+          echo "Generated Fedora packages:"
+          ls -lh rpm/packages/
+
+      - name: Upload RPM packages
+        uses: actions/upload-artifact@v4
+        with:
+          name: rpm-packages
+          path: rpm/packages/*.rpm
+
+
   release:
     name: Publish GitHub Release
-    needs: package-deb
+    needs: [package-deb, package-rpm]
     runs-on: ubuntu-26.04
 
     steps:
@@ -111,9 +152,16 @@ jobs:
           name: deb-packages
           path: debian/packages
 
+      - name: Download RPM packages
+        uses: actions/download-artifact@v5
+        with:
+          name: rpm-packages
+          path: rpm/packages
+
       - name: Show release files
         run: |
           ls -lh debian/packages/
+          ls -lh rpm/packages/
 
       - name: Create GitHub Release
         env:
@@ -122,10 +170,11 @@ jobs:
           TAG: ${{ github.ref_name }}
         run: |
           if gh release view "$TAG" >/dev/null 2>&1; then
-            gh release upload "$TAG" debian/packages/*.deb --clobber
+              gh release upload "$TAG" debian/packages/*.deb rpm/packages/*.rpm --clobber
           else
             gh release create "$TAG" \
               debian/packages/*.deb \
+                rpm/packages/*.rpm \
               --title "$TAG" \
               --generate-notes
           fi

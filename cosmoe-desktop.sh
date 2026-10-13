@@ -17,6 +17,44 @@ if [ -z "${DBUS_SESSION_BUS_ADDRESS:-}" ]; then
     exec dbus-run-session -- "$0" "$@"
 fi
 
+bootstrap_mime_database() {
+    config_home="${XDG_CONFIG_HOME:-$HOME/.config}"
+    mime_db="$config_home/cosmoe/mime_db"
+    marker="$mime_db/.cosmoe-package-version"
+
+    if command -v dpkg-query >/dev/null 2>&1; then
+        package_version="$(dpkg-query -W -f='${Version}' cosmoe 2>/dev/null || true)"
+        package_files() {
+            dpkg-query -L cosmoe cosmoe-apps cosmoe-desktop 2>/dev/null
+        }
+    elif command -v rpm >/dev/null 2>&1; then
+        package_version="$(rpm -q --qf '%{VERSION}-%{RELEASE}' cosmoe 2>/dev/null || true)"
+        package_files() {
+            rpm -ql cosmoe cosmoe-apps cosmoe-desktop 2>/dev/null
+        }
+    else
+        return 0
+    fi
+
+    [ -n "$package_version" ] || return 0
+    [ -r "$marker" ] && [ "$(cat "$marker")" = "$package_version" ] && return 0
+    command -v mimeset >/dev/null 2>&1 || return 0
+
+    mkdir -p "$mime_db" || return 0
+    if ! package_files \
+        | while IFS= read -r path; do
+            [ -x "$path" ] && printf '%s\n' "$path"
+        done \
+        | mimeset -a --mimedb "$mime_db" @; then
+        return 0
+    fi
+    printf '%s\n' "$package_version" >"$marker"
+}
+
+# Package archives do not retain the extended attributes used by Cosmoe's MIME
+# database. Recreate application metadata in the user's writable database.
+bootstrap_mime_database
+
 # VirtualBox's VMSVGA driver can accept pointer events while failing to display
 # wlroots hardware cursors. Use software cursors and pixmap renderer to avoid this.
 export WLR_NO_HARDWARE_CURSORS=1
