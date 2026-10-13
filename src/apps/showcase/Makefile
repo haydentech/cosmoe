@@ -1,42 +1,25 @@
-# Makefile for compiling on Haiku only
+NAME = Showcase
+TYPE = APP
+APP_MIME_SIG = application/x-vnd.Cosmoe-Showcase
 
-CFLAGS   = -g -c -Wall -Wno-multichar -I. \
-	-I/boot/system/develop/headers/private/interface \
-	-I/boot/system/develop/headers/private/tracker \
-	-I/boot/system/develop/headers/private/shared
-CPPFLAGS = $(CFLAGS) -Woverloaded-virtual -Wnon-virtual-dtor
-CXX = g++
+SRCS = \
+	diswindow.cpp \
+	disview.cpp \
+	IconTab.cpp \
+	IconTabView.cpp \
+	IconOutlineListView.cpp \
+	disapp.cpp \
+	app.cpp \
+	Placeholder.cpp \
+	VectorImageButton.cpp
 
-EXE	= Showcase
-OBJS := app.o disapp.o diswindow.o disview.o IconTab.o IconTabView.o IconOutlineListView.o Placeholder.o VectorImageButton.o
+RDEFS = Showcase.rdef
+LIBS = be tracker
+APP_ICON = $(firstword $(RSRCS))
+MAC_BUILD_SUBDIR = cosmoe/src/apps/showcase
+MAC_STAGED_DIRECTORIES = ../../../data:cosmoe/data
 
+DEVEL_DIRECTORY := \
+	$(shell findpaths -r "makefile_engine" B_FIND_PATH_DEVELOP_DIRECTORY)
 
-$(EXE): $(OBJDIR) $(OBJS) $(EXE).rsrc Makefile
-	$(CXX) $(OBJS)  -lbe -ltranslation -ltracker -lcolumnlistview -lshared -o $@
-	xres -o $@ Showcase.rsrc
-
-$(OBJS): MacOSCompatibility.h
-
-$(OBJDIR):
-	mkdir $(OBJDIR)
-
-$(EXE).rsrc: $(EXE).rdef
-	rc $(EXE).rdef
-
-install: $(EXE) $(bindir)
-	cp -f $(EXE) $(bindir)
-
-$(bindir):
-	mkdir -p $(bindir)
-
-clean:
-	-rm -f $(EXE) $(OBJS) *~
-
-distclean: clean
-	-rm -f Makefile
-	-rm -rf $(OBJDIR)
-	
-MacOSCompatibility.h:
-	touch MacOSCompatibility.h
-
-.PHONY: clean distclean deps doc install uninstall all
+include $(DEVEL_DIRECTORY)/etc/makefile-engine

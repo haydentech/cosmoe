@@ -7,7 +7,11 @@ makefile_engine_installed = configure_file(
 	configuration : makefile_engine_conf,
 )
 
-install_data(makefile_engine_installed, install_dir : get_option('sysconfdir'))
+install_data(
+	makefile_engine_installed,
+	'develop/macos-bundle.sh',
+	install_dir : get_option('sysconfdir'),
+)
 
 meson.add_install_script(
 	'sh',
