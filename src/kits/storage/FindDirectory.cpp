@@ -21,7 +21,11 @@
 #include <Path.h>
 #include <Volume.h>
 
-#if defined(__linux__) || defined(__unix__)
+#if defined(__APPLE__) && !defined(_DARWIN_C_SOURCE)
+#define _DARWIN_C_SOURCE
+#endif
+
+#if defined(__unix__) || defined(__APPLE__)
 #include <dlfcn.h>
 #include <unistd.h>
 #endif
@@ -53,7 +57,7 @@ static
 status_t
 get_runtime_system_prefix(BPath& path)
 {
-#if defined(__linux__) || defined(__unix__)
+#if defined(__unix__) || defined(__APPLE__)
 	BPath runtimeLibDir;
 	status_t error = get_system_lib_directory(runtimeLibDir);
 	if (error != B_OK)
@@ -98,7 +102,7 @@ get_runtime_system_path(BPath& path, const char* configuredPath)
 	if (configuredPath == NULL)
 		return B_BAD_VALUE;
 
-#if defined(__linux__) || defined(__unix__)
+#if defined(__unix__) || defined(__APPLE__)
 	if (path_has_prefix(configuredPath, PREFIX)) {
 		BPath runtimePrefix;
 		status_t error = get_runtime_system_prefix(runtimePrefix);
@@ -124,8 +128,8 @@ static
 status_t
 get_system_lib_directory(BPath &path)
 {
-#if defined(__linux__)
-	// On Linux, use dladdr to find where libbe.so is actually installed
+#if defined(__unix__) || defined(__APPLE__)
+	// Use dladdr() to find the directory containing the loaded libbe image.
 	// This handles /usr/local/lib, /usr/lib, /usr/lib/x86_64-linux-gnu, etc.
 	Dl_info info;
 	// Use the address of any function in libbe to find where it's loaded
@@ -142,10 +146,8 @@ get_system_lib_directory(BPath &path)
 		}
 	}
 	// Fallback to configured location if dladdr fails
-	return path.SetTo(LIBDIR);
-#else
-	return path.SetTo(LIBDIR);
 #endif
+	return path.SetTo(LIBDIR);
 }
 
 static
@@ -182,7 +184,7 @@ static
 status_t
 get_trash_directory(BPath& path, dev_t device)
 {
-#if defined(__linux__)
+#if defined(__unix__)
 	BPath homePath;
 	status_t error = get_user_home_directory(homePath);
 	if (error != B_OK)
@@ -268,7 +270,7 @@ status_t
 get_xdg_user_directory(BPath& path, const char* envVar,
 	const char* fallbackSuffix, const char* leaf)
 {
-#if defined(__linux__)
+#if defined(__unix__)
 	BPath homePath;
 	status_t error = get_user_home_directory(homePath);
 	if (error != B_OK)
@@ -468,7 +470,7 @@ find_directory(directory_which which, BPath &path, bool createIt, dev_t device)
 			break;
 
 		case B_USER_CONFIG_DIRECTORY:
-		#if defined(__linux__)
+		#if defined(__unix__)
 			error = get_xdg_user_directory(path, "XDG_CONFIG_HOME", ".config",
 				"cosmoe");
 		#else
@@ -506,7 +508,7 @@ find_directory(directory_which which, BPath &path, bool createIt, dev_t device)
 			break;
 
 		case B_USER_SETTINGS_DIRECTORY:
-		#if defined(__linux__)
+		#if defined(__unix__)
 			error = get_xdg_user_directory(path, "XDG_CONFIG_HOME", ".config",
 				"cosmoe");
 		#else
@@ -545,7 +547,7 @@ find_directory(directory_which which, BPath &path, bool createIt, dev_t device)
 
 		case B_USER_DATA_DIRECTORY:
 		case B_USER_NONPACKAGED_DATA_DIRECTORY:
-		#if defined(__linux__)
+		#if defined(__unix__)
 			error = get_xdg_user_directory(path, "XDG_DATA_HOME",
 				".local/share", "cosmoe");
 		#else
@@ -555,7 +557,7 @@ find_directory(directory_which which, BPath &path, bool createIt, dev_t device)
 			break;
 
 		case B_USER_CACHE_DIRECTORY:
-		#if defined(__linux__)
+		#if defined(__unix__)
 			error = get_xdg_user_directory(path, "XDG_CACHE_HOME", ".cache",
 				"cosmoe");
 		#else
@@ -609,7 +611,7 @@ find_directory(directory_which which, BPath &path, bool createIt, dev_t device)
 			break;
 
 		case B_USER_ETC_DIRECTORY:
-		#if defined(__linux__)
+		#if defined(__unix__)
 			error = get_xdg_user_directory(path, "XDG_CONFIG_HOME", ".config",
 				"cosmoe");
 		#else
@@ -619,7 +621,7 @@ find_directory(directory_which which, BPath &path, bool createIt, dev_t device)
 			break;
 
 		case B_USER_LOG_DIRECTORY:
-		#if defined(__linux__)
+		#if defined(__unix__)
 			error = get_xdg_user_directory(path, "XDG_STATE_HOME",
 				".local/state", "cosmoe/log");
 		#else
@@ -634,7 +636,7 @@ find_directory(directory_which which, BPath &path, bool createIt, dev_t device)
 			break;
 
 		case B_USER_VAR_DIRECTORY:
-		#if defined(__linux__)
+		#if defined(__unix__)
 			error = get_xdg_user_directory(path, "XDG_STATE_HOME",
 				".local/state", "cosmoe");
 		#else

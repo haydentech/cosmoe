@@ -17,7 +17,7 @@
 #include <stdio.h>
 #include <string.h>
 
-#if defined(__linux__) || defined(__unix__)
+#if defined(__unix__)
 #include <unistd.h>
 #include <dlfcn.h>
 #endif
@@ -552,7 +552,7 @@ _InitializeCatalog(void* param)
 		}
 	}
 
-#if defined(__linux__) || defined(__unix__)
+#if defined(__linux__)
 	if (!found) {
 		Dl_info dlInfo;
 		if (dladdr((void*)catalog, &dlInfo) != 0 && dlInfo.dli_fname != NULL) {
