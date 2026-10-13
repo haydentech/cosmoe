@@ -6,3 +6,4 @@ usr/lib/*/libgame.so
 usr/lib/*/libtracker.so
 usr/share/cosmoe/
 usr/share/fonts/ttf/cosmoe/
+usr/bin/mimeset

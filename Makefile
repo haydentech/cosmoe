@@ -1,5 +1,5 @@
 ifeq ($(shell id -u),0)
-ifeq ($(filter deb,$(MAKECMDGOALS)),)
+ifeq ($(filter deb rpm,$(MAKECMDGOALS)),)
 $(error Do not run this Makefile as root. Meson will request elevated privileges if needed.)
 endif
 endif
@@ -31,6 +31,9 @@ endif
 DEB_BUILDDIR := builddir-deb
 DEB_DESTDIR := $(CURDIR)/debian/tmp
 DEB_MULTIARCH := $(shell dpkg-architecture -qDEB_HOST_MULTIARCH)
+RPM_TOPDIR := $(CURDIR)/rpm/build
+RPM_SPEC := $(CURDIR)/rpm/cosmoe.spec
+RPM_VERSION := $(shell sed -nE "s/^\s*version:\s*'([^']+)'.*/\1/p" meson.build)
 
 
 ifeq ($(USE_BUILD_SCRIPT),yes)
@@ -61,6 +64,7 @@ install: configure
 clean:
 	rm -rf $(BUILDDIR)
 	rm -rf $(DEB_BUILDDIR) $(DEB_DESTDIR)
+	rm -rf $(RPM_TOPDIR) rpm/packages
 
 distclean: clean
 	@echo "Distclean complete (builddir removed)"
@@ -90,6 +94,25 @@ deb:
 	mkdir -p debian/packages; \
 	mv ../cosmoe*.deb debian/packages/
 endif
+
+rpm:
+	@command -v rpmbuild >/dev/null 2>&1 || { \
+		echo "rpmbuild is required; run this target on Fedora or install rpm-build." >&2; \
+		exit 1; \
+	}
+	test -n "$(RPM_VERSION)" || { echo "Could not determine the Meson project version." >&2; exit 1; }
+	rm -rf $(RPM_TOPDIR) rpm/packages
+	mkdir -p $(RPM_TOPDIR)/BUILD $(RPM_TOPDIR)/BUILDROOT $(RPM_TOPDIR)/RPMS \
+		$(RPM_TOPDIR)/SOURCES $(RPM_TOPDIR)/SRPMS rpm/packages
+	git ls-files -co --exclude-standard -z | \
+		tar --null --files-from=- --create --gzip \
+		--transform 's,^,cosmoe-$(RPM_VERSION)/,' \
+		--file=$(RPM_TOPDIR)/SOURCES/cosmoe-$(RPM_VERSION).tar.gz
+	rpmbuild -ba $(RPM_SPEC) \
+		--define "_topdir $(RPM_TOPDIR)" \
+		--define "_sourcedir $(RPM_TOPDIR)/SOURCES" \
+		--define "_rpmdir $(CURDIR)/rpm/packages" \
+		--define "_srcrpmdir $(CURDIR)/rpm/packages"
 
 # Build a NoCloud seed ISO for a minimal Ubuntu Cosmoe test installation.
 # The image script stages only the runtime packages produced by `make deb`.
@@ -124,4 +147,4 @@ windows-clean:
 	rm -rf win-test
 	@echo "Windows build directory and win-test directory removed"
 
-.PHONY: build configure install clean distclean deb image windows windows-clean
+.PHONY: build configure install clean distclean deb rpm image windows windows-clean
