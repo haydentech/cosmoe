@@ -2703,7 +2703,7 @@ FSGetTrashDir(BDirectory* trashDir, dev_t dev)
 			return result;
 	}
 
-#ifdef __linux__
+#ifdef __unix__
 	// Freedesktop.org Trash specification requires a subdirectory "info"
 	// to be present in the trash directory.
 	BPath trashRoot;

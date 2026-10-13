@@ -32,7 +32,7 @@ const char* gRemoteClassName = "TRemoteTestObject";
 const char* gRemoteSig = "application/x-vnd.RemoteObjectDef";
 const char* gValidSig = gRemoteSig;
 
-#if defined(__linux__)
+#if defined(__unix__)
 const char* gRemoteLib = "/lib/libsupporttest_RemoteTestObject.so";
 #elif defined(__APPLE__)
 const char* gRemoteLib = "/lib/libsupporttest_RemoteTestObject.dylib";

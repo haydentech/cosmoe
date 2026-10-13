@@ -427,7 +427,7 @@ _get_image_info(image_id image, image_info *info, size_t size)
 	if (address == NULL && record.isMainExecutable)
 		address = (void*)&_get_image_info;
 
-#ifdef __linux__
+#ifdef __unix__
 	if (address == NULL && record.handle != NULL) {
 		struct link_map* linkMap = NULL;
 		if (dlinfo(record.handle, RTLD_DI_LINKMAP, &linkMap) == 0

@@ -1155,7 +1155,7 @@ IconView::IconView(BRect rect, uint32 followFlags)
 	auto add_app = [&](const char* name, const char* description = "") {
 		std::string fullPath = std::string("./") + name;
 		std::string resourcePath = std::string("./") + name;
-#ifdef __linux__
+#ifdef __unix__
 		BPath systemBinDirectory;
 		if (find_directory(B_SYSTEM_BIN_DIRECTORY, &systemBinDirectory) == B_OK)
 			fullPath = std::string(systemBinDirectory.Path()) + "/" + name;
@@ -1246,7 +1246,7 @@ IconView::IconView(BRect rect, uint32 followFlags)
 
 	add_app("DeskCalc", "Simple calculator application");
 	add_app("Pairs", "Matching game");
-#if defined(__linux__) || defined(__APPLE__) || defined(__HAIKU__)
+#if defined(__unix__) || defined(__APPLE__) || defined(__HAIKU__)
 	add_app("Terminal");
 #endif
 	add_app("StyledEdit");
@@ -1497,7 +1497,7 @@ IconView::MouseUp(BPoint where)
 		const AppEntry& app = fApps[fHoveredAppIndex];
 		printf("Launching: %s\n", app.name.c_str());
 		
-#if defined(__linux__) || defined(__HAIKU__) 
+#if defined(__unix__) || defined(__HAIKU__) 
 		// Linux: use fork/exec
 		pid_t pid = fork();
 		if (pid == 0) {
