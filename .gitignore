@@ -64,3 +64,8 @@ debian/tmp
 /debian/files
 /debian/debhelper-build-stamp
 /debian/*.substvars
+rpm/build/BUILD
+rpm/build/RPMS
+rpm/build/SOURCES
+rpm/build/SRPMS
+rpm/packages

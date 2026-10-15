@@ -36,6 +36,8 @@ public:
 								BApplication(const char* signature);
 								BApplication(const char* signature,
 									status_t* error);
+								BApplication(const char* signature, bool initGUI,
+									status_t* error);
 	virtual						~BApplication();
 
 	// Archiving
