@@ -97,6 +97,7 @@ Deskbar, and a display-manager session entry.
 %{_datadir}/fonts/ttf/cosmoe/
 
 %files devel
+%exclude %{_sysconfdir}/macos-bundle.sh
 %{_sysconfdir}/makefile-engine
 %{_includedir}/
 %{_libdir}/*.a
@@ -120,6 +121,12 @@ Deskbar, and a display-manager session entry.
 %{_bindir}/xres
 
 %files apps
+%exclude %{_bindir}/gui-torture
+%exclude %{_bindir}/minimal
+%exclude %{_bindir}/minimal-noui
+%exclude /usr/lib/debug/usr/bin/gui-torture-*.debug
+%exclude /usr/lib/debug/usr/bin/minimal-*.debug
+%exclude /usr/lib/debug/usr/bin/minimal-noui-*.debug
 %exclude %{_datadir}/applications/mimeinfo.cache
 %exclude %{_datadir}/applications/x-vnd.Be-TSKB.desktop
 %exclude %{_datadir}/applications/x-vnd.Cosmoe-Tracker.desktop

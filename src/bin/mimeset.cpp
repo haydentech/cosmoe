@@ -234,7 +234,13 @@ main(int argc, const char** argv)
 
 	// process files
 
-	BApplication app("application/x-vnd.haiku.mimeset");
+	status_t appStatus;
+	BApplication app("application/x-vnd.haiku.mimeset", false, &appStatus);
+	if (appStatus != B_OK) {
+		fprintf(stderr, "%s: Failed to initialize application: %s\n",
+			sProgramName, strerror(appStatus));
+		return 1;
+	}
 
 	for (; optind < argc; optind++) {
 		const char* arg = argv[optind];

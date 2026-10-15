@@ -377,6 +377,15 @@ BApplication::BApplication(const char* signature, status_t* _error)
 }
 
 
+BApplication::BApplication(const char* signature, bool initGUI,
+	status_t* _error)
+	:
+	BLooper(kDefaultLooperName)
+{
+	_InitData(signature, initGUI, _error);
+}
+
+
 BApplication::BApplication(BMessage* data)
 	// Note: BeOS calls the private BLooper(int32, port_id, const char*)
 	// constructor here, test if it's needed

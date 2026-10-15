@@ -155,19 +155,6 @@ if is_darwin
 	add_project_link_arguments(['-Wl,-rpath,' + full_libdir], language: ['c', 'cpp', 'objc', 'objcpp'])
 endif
 
-# On Linux, also add rpath to find libraries in the installation directory
-if is_linux
-	prefix = get_option('prefix')
-	libdir = get_option('libdir')
-	if not libdir.startswith('/')
-		# libdir is relative to prefix
-		full_libdir = prefix / libdir
-	else
-		# libdir is absolute
-		full_libdir = libdir
-	endif
-	add_project_link_arguments(['-Wl,-rpath,' + full_libdir], language: ['c', 'cpp'])
-endif
 
 # On Windows/MSYS2, ensure _WIN32 is defined for MinGW headers
 if is_windows
