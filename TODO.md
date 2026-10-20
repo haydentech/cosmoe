@@ -5,9 +5,6 @@
 - Cairo complains on exit due to non-empty object hash (i.e. memory leak)
   - This assert is currently disabled.
 
-- Modal alerts are not fully modal on Wayland
-  - The alert stays frontmost, but input will still be processed in the parent window.
-
 - ShowImage selection rectangle does not do the "marching ants" animation
 
 - `BRecentFilesList` / `BRecentFolderList` / `BRecentAppList` only partially implemented
