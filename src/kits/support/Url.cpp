@@ -18,6 +18,8 @@
 #include <MimeType.h>
 #include <Roster.h>
 
+#define HAIKU_TARGET_PLATFORM_HAIKU
+
 #if defined(HAIKU_TARGET_PLATFORM_HAIKU) || defined(HAIKU_TARGET_PLATFORM_LIBBE_TEST)
 	#include <ICUWrapper.h>
 #endif

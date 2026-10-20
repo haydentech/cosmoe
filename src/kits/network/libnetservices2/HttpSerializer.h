@@ -7,10 +7,10 @@
 #define _B_HTTP_SERIALIZER_H_
 
 
-#include <sys/types.h>
-
 #include <functional>
 #include <optional>
+
+#include <sys/types.h>
 
 class BDataIO;
 

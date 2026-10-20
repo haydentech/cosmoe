@@ -1499,9 +1499,7 @@ BAbstractSpinner::_DrawLabel(BRect updateRect)
 
 	uint32 flags = be_control_look->Flags(this);
 
-	rgb_color highColor = ui_color(B_CONTROL_TEXT_COLOR);
-	if (!IsEnabled())
-		highColor = disable_color(highColor, LowColor());
+	rgb_color highColor = HighColor();
 	be_control_look->DrawLabel(this, label, LowColor(), flags, BPoint(x, y), &highColor);
 }
 
