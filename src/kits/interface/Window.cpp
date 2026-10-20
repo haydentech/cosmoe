@@ -6151,6 +6151,17 @@ void
 BWindow::_SetParentWindow(BWindow* parent)
 {
 	fParentWindow = parent;
+
+	if (parent == NULL || fWindowToken == B_NULL_TOKEN
+		|| parent->fWindowToken == B_NULL_TOKEN || !Lock())
+		return;
+
+	BEGIN_MESSAGE
+	fLink->StartMessage(AS_SET_WINDOW_PARENT);
+	fLink->Attach<int32_t>(fWindowToken);
+	fLink->Attach<int32_t>(parent->fWindowToken);
+	fLink->Flush();
+	Unlock();
 }
 
 

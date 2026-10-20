@@ -78,6 +78,7 @@ enum {
 
 enum {
 	COSMOE_WINDOW_LOOK_DESKTOP = 4,
+	COSMOE_WINDOW_FEEL_MODAL_APP = 1,
 	COSMOE_WINDOW_FEEL_FLOATING_APP = 4,
 	COSMOE_WINDOW_FEEL_DESKTOP = 1024
 };
@@ -772,6 +773,24 @@ struct window {
 	int32_t token;  /* BWindow object token for PortLink window identification */
 	struct widget *topview_widget;
 };
+
+static int
+window_has_visible_modal_child(struct window *window)
+{
+	struct window *candidate;
+
+	if (window == NULL)
+		return 0;
+
+	wl_list_for_each(candidate, &window->display->window_list, link) {
+		if (candidate->parent == window && !candidate->hidden
+			&& candidate->feel == COSMOE_WINDOW_FEEL_MODAL_APP)
+			return 1;
+	}
+
+	return 0;
+}
+
 
 struct widget {
 	struct window *window;
@@ -4100,17 +4119,22 @@ pointer_handle_enter(void *data, struct wl_pointer *pointer,
 	input->pointer_enter_serial = serial;
 	input->pointer_focus = window;
 	input->menu_dismiss_window = NULL;
+	/* Create the cursor surface before the modal-parent early return below. */
+	if (!input->pointer_surface)
+		input->pointer_surface = wl_compositor_create_surface(input->display->compositor);
+	input->pointer_surface_has_role = false;
+
+	if (window_has_visible_modal_child(window)) {
+		input_set_focus_widget(input, NULL, sx, sy);
+		input_set_pointer_image(input, CURSOR_LEFT_PTR);
+		return;
+	}
 
 	/* Some compositors advertise wl_seat before wl_compositor. This
 	 * makes it potentially impossible to create the pointer surface
 	 * when we bind the seat, so we need to create our pointer surface
 	 * now instead.
 	 */
-	if (!input->pointer_surface)
-		input->pointer_surface = wl_compositor_create_surface(input->display->compositor);
-
-	input->pointer_surface_has_role = false;
-
 	input->sx = sx;
 	input->sy = sy;
 
@@ -4139,7 +4163,7 @@ pointer_handle_motion(void *data, struct wl_pointer *pointer,
 	float sx = wl_fixed_to_double(sx_w);
 	float sy = wl_fixed_to_double(sy_w);
 
-	if (!window)
+	if (!window || window_has_visible_modal_child(window))
 		return;
 
 	input->sx = sx;
@@ -4189,6 +4213,10 @@ static void
 dispatch_axis_event(struct widget *widget, struct input *input,
 	uint32_t time, uint32_t axis, wl_fixed_t value)
 {
+	if (input != NULL && input->pointer_focus
+		&& window_has_visible_modal_child(input->pointer_focus))
+		return;
+
 	if (widget && widget->axis_handler) {
 		(*widget->axis_handler)(widget,
 			input, time,
@@ -4266,6 +4294,10 @@ pointer_handle_button(void *data, struct wl_pointer *pointer, uint32_t serial,
 	enum wl_pointer_button_state state = state_w;
 
 	input->display->serial = serial;
+	if (input->pointer_focus
+		&& window_has_visible_modal_child(input->pointer_focus))
+		return;
+
 	if (input->focus_widget && input->grab == NULL &&
 	    state == WL_POINTER_BUTTON_STATE_PRESSED)
 		input_grab(input, input->focus_widget, button);
@@ -4411,7 +4443,8 @@ keyboard_repeat_func(struct toytimer *tt)
 	struct input *input = container_of(tt, struct input, repeat_timer);
 	struct window *window = input->keyboard_focus;
 
-	if (window && window->key_handler) {
+	if (window && !window_has_visible_modal_child(window)
+		&& window->key_handler) {
 		(*window->key_handler)(window, input, input->repeat_time,
 				       input->repeat_key, input->repeat_sym,
 				       WL_KEYBOARD_KEY_STATE_PRESSED,
@@ -4534,7 +4567,8 @@ keyboard_handle_enter(void *data, struct wl_keyboard *keyboard,
 	input->menu_dismiss_window = NULL;
 
 	window = input->keyboard_focus;
-	if (window->keyboard_focus_handler)
+	if (!window_has_visible_modal_child(window)
+		&& window->keyboard_focus_handler)
 		(*window->keyboard_focus_handler)(window,
 						  input, window->user_data);
 }
@@ -4602,7 +4636,8 @@ keyboard_handle_key(void *data, struct wl_keyboard *keyboard,
 
 	input->display->serial = serial;
 	code = key + 8;
-	if (!window || !input->xkb.state)
+	if (!window || window_has_visible_modal_child(window)
+		|| !input->xkb.state)
 		return;
 
 	/* We only use input grabs for pointer events for now, so just
@@ -4782,6 +4817,8 @@ touch_handle_down(void *data, struct wl_touch *wl_touch,
 		input->touch_focus = NULL;
 		return;
 	}
+	if (window_has_visible_modal_child(input->touch_focus))
+		return;
 
 	if (input->grab)
 		widget = input->grab;
@@ -4823,7 +4860,8 @@ touch_handle_up(void *data, struct wl_touch *wl_touch,
 		if (tp->id != id)
 			continue;
 
-		if (tp->widget->touch_up_handler)
+		if (!window_has_visible_modal_child(input->touch_focus)
+			&& tp->widget->touch_up_handler)
 			(*tp->widget->touch_up_handler)(tp->widget, input, serial,
 							time, id,
 							tp->widget->user_data);
@@ -4857,7 +4895,8 @@ touch_handle_motion(void *data, struct wl_touch *wl_touch,
 
 		tp->x = sx;
 		tp->y = sy;
-		if (tp->widget->touch_motion_handler)
+		if (!window_has_visible_modal_child(input->touch_focus)
+			&& tp->widget->touch_motion_handler)
 			(*tp->widget->touch_motion_handler)(tp->widget, input, time,
 							    id, sx, sy,
 							    tp->widget->user_data);

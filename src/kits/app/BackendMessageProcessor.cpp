@@ -52,6 +52,24 @@ BackendMessageProcessor::ProcessMessages(CosmoeBackend* backend,
 	STRACE(("Backend: Processing message code=%d\n", code));
 	
 	switch (code) {
+		case AS_SET_WINDOW_PARENT: {
+			int32_t token;
+			int32_t parentToken;
+
+			if (link.Read<int32_t>(&token) == B_OK
+				&& link.Read<int32_t>(&parentToken) == B_OK) {
+				backend_window_t window = backend->WindowLookupByToken(
+					be_app->Display(), token);
+				backend_window_t parent = backend->WindowLookupByToken(
+					be_app->Display(), parentToken);
+				if (window != NULL && parent != NULL)
+					backend->WindowSetParent(window, parent);
+			} else {
+				STRACE(("Backend: Failed to read AS_SET_WINDOW_PARENT\n"));
+			}
+			break;
+		}
+
 		case AS_SET_LOOK: {
 			int32_t token;
 			uint32 look;
