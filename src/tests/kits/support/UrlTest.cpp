@@ -1,7 +1,8 @@
 /*
  * Copyright 2010, Christophe Huriaux
  * Copyright 2014, Haiku, inc.
- * Distributed under the terms of the MIT licence
+ * Copyright 2016-2024, Andrew Lindesay, apl@lindesay.co.nz.
+ * Distributed under the terms of the MIT License.
  */
 
 
@@ -17,6 +18,120 @@
 #include <cppunit/TestCaller.h>
 #include <cppunit/TestSuite.h>
 
+typedef struct
+{
+	const char* url;
+
+	struct
+	{
+		const char* protocol;
+		const char* userName;
+		const char* password;
+		const char* host;
+		int16		port;
+		const char* path;
+		const char* request;
+		const char* fragment;
+	} expected;
+} ExplodeTest;
+
+
+const ExplodeTest	kTestExplode[] =
+//  Url
+//	   Protocol	 User  Password  Hostname  Port	 Path	Request	  Fragment
+//	   -------- --------- --------- --------- ---- ---------- ---------- ------------
+{
+	{ "http://user:pass@host:80/path?query#fragment",
+		{ "http",   "user",   "pass",   "host",	 80,   "/path",	  "query",   "fragment" } },
+	{ "http://www.host.tld/path?query#fragment",
+		{ "http",   "",		"", "www.host.tld",0,   "/path",	  "query",   "fragment" } },
+	{ "",
+		{ "",	   "",		"", "",			0,   "",		"",		""} },
+	{ "mailto:John.Doe@example.com",
+		{ "mailto", "",		"", "",			0,   "John.Doe@example.com", "", "" } },
+	{ "mailto:?to=addr1@an.example,addr2@an.example",
+		{ "mailto", "",		"", "",			0,   "",		"to=addr1@an.example,addr2@an.example", "" } },
+	{ "urn:oasis:names:specification:docbook:dtd:xml:4.1.2",
+		{ "urn",	"",		"", "",			0,   "oasis:names:specification:docbook:dtd:xml:4.1.2", "", "" } },
+	{ "http://www.goodsearch.com/login?return_path=/",
+		{ "http",   "",		"", "www.goodsearch.com", 0, "/login", "return_path=/", "" } },
+	{ "ldap://[2001:db8::7]:389/c=GB?objectClass?one",
+		{ "ldap",   "",		"", "[2001:db8::7]",389,"/c=GB",   "objectClass?one", "" } },
+	{ "ldap://[2001:db8::7]/c=GB?objectClass?one",
+		{ "ldap",   "",		"", "[2001:db8::7]",0,  "/c=GB",   "objectClass?one", "" } },
+	{ "HTTP://example.com.:80/%70a%74%68?a=%31#1%323",
+		{ "HTTP",   "",		"", "example.com.",80,  "/%70a%74%68","a=%31","1%323"} },
+	{ "/boot/home/Desktop/index.html",
+		{ "",   "",			"", "",			 0,  "/boot/home/Desktop/index.html","",""} },
+	{ "//remote.host/boot/home/Desktop",
+		{ "",   "",			"", "remote.host",  0,  "/boot/home/Desktop","",""} },
+	{ "tag:haiku-os.org,2020:repositories/haiku/r1beta2/x86_gcc2",
+		{ "tag", "", "", "", 0, "haiku-os.org,2020:repositories/haiku/r1beta2/x86_gcc2" } }
+};
+
+
+void
+UrlTest::IDNTest()
+{
+	// http://www.w3.org/2004/04/uri-rel-test.html
+	// TODO We need to decide wether to store them as UTF-8 or IDNA/punycode.
+
+	struct Test {
+		const char* escaped;
+		const char* decoded;
+	};
+
+	Test tests[] = {
+		{ "http://www.w%33.org", "http://www.w3.org" },
+		{ "http://r%C3%A4ksm%C3%B6rg%C3%A5s.josefsson.org",
+			"http://xn--rksmrgs-5wao1o.josefsson.org" },
+		{ "http://%E7%B4%8D%E8%B1%86.w3.mag.keio.ac.jp",
+			"http://xn--99zt52a.w3.mag.keio.ac.jp" },
+		{ "http://www.%E3%81%BB%E3%82%93%E3%81%A8%E3%81%86%E3%81%AB%E3%81%AA"
+			"%E3%81%8C%E3%81%84%E3%82%8F%E3%81%91%E3%81%AE%E3%82%8F%E3%81%8B%E3"
+			"%82%89%E3%81%AA%E3%81%84%E3%81%A9%E3%82%81%E3%81%84%E3%82%93%E3%82"
+			"%81%E3%81%84%E3%81%AE%E3%82%89%E3%81%B9%E3%82%8B%E3%81%BE%E3%81%A0"
+			"%E3%81%AA%E3%81%8C%E3%81%8F%E3%81%97%E3%81%AA%E3%81%84%E3%81%A8%E3"
+			"%81%9F%E3%82%8A%E3%81%AA%E3%81%84.w3.mag.keio.ac.jp/",
+			"http://www.xn--n8jaaaaai5bhf7as8fsfk3jnknefdde3fg11amb5gzdb4wi9b"
+			"ya3kc6lra.w3.mag.keio.ac.jp/" },
+
+		{ "http://%E3%81%BB%E3%82%93%E3%81%A8%E3%81%86%E3%81%AB%E3%81%AA%E3"
+			"%81%8C%E3%81%84%E3%82%8F%E3%81%91%E3%81%AE%E3%82%8F%E3%81%8B%E3%82"
+			"%89%E3%81%AA%E3%81%84%E3%81%A9%E3%82%81%E3%81%84%E3%82%93%E3%82%81"
+			"%E3%81%84%E3%81%AE%E3%82%89%E3%81%B9%E3%82%8B%E3%81%BE%E3%81%A0%E3"
+			"%81%AA%E3%81%8C%E3%81%8F%E3%81%97%E3%81%AA%E3%81%84%E3%81%A8%E3%81"
+			"%9F%E3%82%8A%E3%81%AA%E3%81%84.%E3%81%BB%E3%82%93%E3%81%A8%E3%81"
+			"%86%E3%81%AB%E3%81%AA%E3%81%8C%E3%81%84%E3%82%8F%E3%81%91%E3%81%AE"
+			"%E3%82%8F%E3%81%8B%E3%82%89%E3%81%AA%E3%81%84%E3%81%A9%E3%82%81%E3"
+			"%81%84%E3%82%93%E3%82%81%E3%81%84%E3%81%AE%E3%82%89%E3%81%B9%E3%82"
+			"%8B%E3%81%BE%E3%81%A0%E3%81%AA%E3%81%8C%E3%81%8F%E3%81%97%E3%81%AA"
+			"%E3%81%84%E3%81%A8%E3%81%9F%E3%82%8A%E3%81%AA%E3%81%84.%E3%81%BB"
+			"%E3%82%93%E3%81%A8%E3%81%86%E3%81%AB%E3%81%AA%E3%81%8C%E3%81%84%E3"
+			"%82%8F%E3%81%91%E3%81%AE%E3%82%8F%E3%81%8B%E3%82%89%E3%81%AA%E3%81"
+			"%84%E3%81%A9%E3%82%81%E3%81%84%E3%82%93%E3%82%81%E3%81%84%E3%81%AE"
+			"%E3%82%89%E3%81%B9%E3%82%8B%E3%81%BE%E3%81%A0%E3%81%AA%E3%81%8C%E3"
+			"%81%8F%E3%81%97%E3%81%AA%E3%81%84%E3%81%A8%E3%81%9F%E3%82%8A%E3%81"
+			"%AA%E3%81%84.w3.mag.keio.ac.jp/",
+			"http://xn--n8jaaaaai5bhf7as8fsfk3jnknefdde3fg11amb5gzdb4wi9bya3k"
+			"c6lra.xn--n8jaaaaai5bhf7as8fsfk3jnknefdde3fg11amb5gzdb4wi9bya3kc6"
+			"lra.xn--n8jaaaaai5bhf7as8fsfk3jnknefdde3fg11amb5gzdb4wi9bya3kc6lr"
+			"a.w3.mag.keio.ac.jp/" },
+		{ NULL, NULL }
+	};
+
+	for (int i = 0; tests[i].escaped != NULL; i++)
+	{
+		NextSubTest();
+
+		BUrl url(tests[i].escaped, false);
+		BUrl idn(tests[i].decoded, false);
+		status_t success = idn.IDNAToUnicode();
+
+		CPPUNIT_ASSERT_EQUAL(B_OK, success);
+		CPPUNIT_ASSERT_EQUAL(url.UrlString(), idn.UrlString());
+	}
+}
 
 UrlTest::UrlTest()
 {
@@ -156,56 +271,6 @@ void UrlTest::TestCopy()
 }
 
 
-typedef struct
-{
-	const char* url;
-
-	struct
-	{
-		const char* protocol;
-		const char* userName;
-		const char* password;
-		const char* host;
-		int16		port;
-		const char* path;
-		const char* request;
-		const char* fragment;
-	} expected;
-} ExplodeTest;
-
-
-const ExplodeTest	kTestExplode[] =
-	//  Url
-	//       Protocol     User  Password  Hostname  Port     Path    Request      Fragment
-	//       -------- --------- --------- --------- ---- ---------- ---------- ------------
-	{
-		{ "http://user:pass@host:80/path?query#fragment",
-			{ "http",   "user",   "pass",   "host",	 80,   "/path",	  "query",   "fragment" } },
-		{ "http://www.host.tld/path?query#fragment",
-			{ "http",   "",        "", "www.host.tld",0,   "/path",	  "query",   "fragment" } },
-		{ "",
-			{ "",       "",        "", "",            0,   "",        "",        ""} },
-		{ "mailto:John.Doe@example.com",
-			{ "mailto", "",        "", "",            0,   "John.Doe@example.com", "", "" } },
-		{ "mailto:?to=addr1@an.example,addr2@an.example",
-			{ "mailto", "",        "", "",            0,   "",        "to=addr1@an.example,addr2@an.example", "" } },
-		{ "urn:oasis:names:specification:docbook:dtd:xml:4.1.2",
-			{ "urn",    "",        "", "",            0,   "oasis:names:specification:docbook:dtd:xml:4.1.2", "", "" } },
-		{ "http://www.goodsearch.com/login?return_path=/",
-			{ "http",   "",        "", "www.goodsearch.com", 0, "/login", "return_path=/", "" } },
-		{ "ldap://[2001:db8::7]:389/c=GB?objectClass?one",
-			{ "ldap",   "",        "", "[2001:db8::7]",389,"/c=GB",   "objectClass?one", "" } },
-		{ "ldap://[2001:db8::7]/c=GB?objectClass?one",
-			{ "ldap",   "",        "", "[2001:db8::7]",0,  "/c=GB",   "objectClass?one", "" } },
-		{ "HTTP://example.com.:80/%70a%74%68?a=%31#1%323",
-			{ "HTTP",   "",        "", "example.com.",80,  "/%70a%74%68","a=%31","1%323"} },
-		{ "/boot/home/Desktop/index.html",
-			{ "",   "",            "", "",             0,  "/boot/home/Desktop/index.html","",""} },
-		{ "//remote.host/boot/home/Desktop",
-			{ "",   "",            "", "remote.host",  0,  "/boot/home/Desktop","",""} },
-		{ "tag:haiku-os.org,2020:repositories/haiku/r1beta2/x86_gcc2",
-			{ "tag", "", "", "", 0, "haiku-os.org,2020:repositories/haiku/r1beta2/x86_gcc2" } }
-	};
 
 void UrlTest::ExplodeImplodeTest()
 {
@@ -541,69 +606,6 @@ UrlTest::RelativeUriTest()
 	}
 }
 
-
-void
-UrlTest::IDNTest()
-{
-	// http://www.w3.org/2004/04/uri-rel-test.html
-	// TODO We need to decide wether to store them as UTF-8 or IDNA/punycode.
-
-	struct Test {
-		const char* escaped;
-		const char* decoded;
-	};
-
-	Test tests[] = {
-		{ "http://www.w%33.org", "http://www.w3.org" },
-		{ "http://r%C3%A4ksm%C3%B6rg%C3%A5s.josefsson.org",
-			"http://xn--rksmrgs-5wao1o.josefsson.org" },
-		{ "http://%E7%B4%8D%E8%B1%86.w3.mag.keio.ac.jp",
-			"http://xn--99zt52a.w3.mag.keio.ac.jp" },
-		{ "http://www.%E3%81%BB%E3%82%93%E3%81%A8%E3%81%86%E3%81%AB%E3%81%AA"
-			"%E3%81%8C%E3%81%84%E3%82%8F%E3%81%91%E3%81%AE%E3%82%8F%E3%81%8B%E3"
-			"%82%89%E3%81%AA%E3%81%84%E3%81%A9%E3%82%81%E3%81%84%E3%82%93%E3%82"
-			"%81%E3%81%84%E3%81%AE%E3%82%89%E3%81%B9%E3%82%8B%E3%81%BE%E3%81%A0"
-			"%E3%81%AA%E3%81%8C%E3%81%8F%E3%81%97%E3%81%AA%E3%81%84%E3%81%A8%E3"
-			"%81%9F%E3%82%8A%E3%81%AA%E3%81%84.w3.mag.keio.ac.jp/",
-			"http://www.xn--n8jaaaaai5bhf7as8fsfk3jnknefdde3fg11amb5gzdb4wi9b"
-			"ya3kc6lra.w3.mag.keio.ac.jp/" },
-
-		{ "http://%E3%81%BB%E3%82%93%E3%81%A8%E3%81%86%E3%81%AB%E3%81%AA%E3"
-			"%81%8C%E3%81%84%E3%82%8F%E3%81%91%E3%81%AE%E3%82%8F%E3%81%8B%E3%82"
-			"%89%E3%81%AA%E3%81%84%E3%81%A9%E3%82%81%E3%81%84%E3%82%93%E3%82%81"
-			"%E3%81%84%E3%81%AE%E3%82%89%E3%81%B9%E3%82%8B%E3%81%BE%E3%81%A0%E3"
-			"%81%AA%E3%81%8C%E3%81%8F%E3%81%97%E3%81%AA%E3%81%84%E3%81%A8%E3%81"
-			"%9F%E3%82%8A%E3%81%AA%E3%81%84.%E3%81%BB%E3%82%93%E3%81%A8%E3%81"
-			"%86%E3%81%AB%E3%81%AA%E3%81%8C%E3%81%84%E3%82%8F%E3%81%91%E3%81%AE"
-			"%E3%82%8F%E3%81%8B%E3%82%89%E3%81%AA%E3%81%84%E3%81%A9%E3%82%81%E3"
-			"%81%84%E3%82%93%E3%82%81%E3%81%84%E3%81%AE%E3%82%89%E3%81%B9%E3%82"
-			"%8B%E3%81%BE%E3%81%A0%E3%81%AA%E3%81%8C%E3%81%8F%E3%81%97%E3%81%AA"
-			"%E3%81%84%E3%81%A8%E3%81%9F%E3%82%8A%E3%81%AA%E3%81%84.%E3%81%BB"
-			"%E3%82%93%E3%81%A8%E3%81%86%E3%81%AB%E3%81%AA%E3%81%8C%E3%81%84%E3"
-			"%82%8F%E3%81%91%E3%81%AE%E3%82%8F%E3%81%8B%E3%82%89%E3%81%AA%E3%81"
-			"%84%E3%81%A9%E3%82%81%E3%81%84%E3%82%93%E3%82%81%E3%81%84%E3%81%AE"
-			"%E3%82%89%E3%81%B9%E3%82%8B%E3%81%BE%E3%81%A0%E3%81%AA%E3%81%8C%E3"
-			"%81%8F%E3%81%97%E3%81%AA%E3%81%84%E3%81%A8%E3%81%9F%E3%82%8A%E3%81"
-			"%AA%E3%81%84.w3.mag.keio.ac.jp/",
-			"http://xn--n8jaaaaai5bhf7as8fsfk3jnknefdde3fg11amb5gzdb4wi9bya3k"
-			"c6lra.xn--n8jaaaaai5bhf7as8fsfk3jnknefdde3fg11amb5gzdb4wi9bya3kc6"
-			"lra.xn--n8jaaaaai5bhf7as8fsfk3jnknefdde3fg11amb5gzdb4wi9bya3kc6lr"
-			"a.w3.mag.keio.ac.jp/" },
-		{ NULL, NULL }
-	};
-
-	for (int i = 0; tests[i].escaped != NULL; i++)
-	{
-		NextSubTest();
-
-		BUrl url(tests[i].escaped, false);
-		BUrl idn(tests[i].decoded, false);
-		status_t success = idn.IDNAToUnicode();
-
-		CPPUNIT_ASSERT_EQUAL(B_OK, success);
-		CPPUNIT_ASSERT_EQUAL(url.UrlString(), idn.UrlString());
-	}
-}
 
 
 /* static */ void

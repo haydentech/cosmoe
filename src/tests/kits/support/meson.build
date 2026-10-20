@@ -52,6 +52,9 @@ srcs_support_test = files(
   
   # PointerList
   'PointerListTest.cpp',
+
+  # URL
+  'UrlTest.cpp'
 )
 
 # Add Windows DLL entry point stub on Windows

@@ -77,8 +77,9 @@ AppMenuItem::AppMenuItem(const char* appSig, int category)
 	fIsValid(false)
 {
 	if (be_roster->FindApp(appSig, &fAppRef) == B_NO_ERROR) {
-		fIcon = new BBitmap(BRect(0.0, 0.0, 15.0, 15.0), B_RGBA32);
-		if (BNodeInfo::GetTrackerIcon(&fAppRef, fIcon, B_MINI_ICON) == B_OK) {
+		fIcon = new BBitmap(BRect(BPoint(0, 0), be_control_look->ComposeIconSize(B_MINI_ICON)),
+			B_RGBA32);
+		if (BNodeInfo::GetTrackerIcon(&fAppRef, fIcon, (icon_size)-1) == B_OK) {
 			BEntry appEntry(&fAppRef);
 			if (appEntry.InitCheck() == B_OK) {
 				char name[B_FILE_NAME_LENGTH];
@@ -450,6 +451,7 @@ PieView::_DrawDirectory(BRect b, FileInfo* info, float parentSpan,
 
 		// Draw the center circle.
 		const char* displayName;
+		off_t size = 0;
 		if (info == NULL) {
 			// NULL represents the entire volume.  Show used and free space in
 			// the center circle, with the used segment representing the
@@ -465,14 +467,7 @@ PieView::_DrawDirectory(BRect b, FileInfo* info, float parentSpan,
 				mySpan);
 
 			// Show total volume capacity.
-			char label[B_PATH_NAME_LENGTH];
-			string_for_size(volCapacity, label, sizeof(label));
-			SetHighColor(kPieBGColor);
-			SetDrawingMode(B_OP_OVER);
-			DrawString(label, BPoint(cx - StringWidth(label) / 2.0,
-				cy + fFontHeight + kSmallVMargin));
-			SetDrawingMode(B_OP_COPY);
-
+			size = volCapacity;
 			displayName = snapshot->name.c_str();
 
 			// Record in-use space and free space for use during MouseMoved().
@@ -488,7 +483,11 @@ PieView::_DrawDirectory(BRect b, FileInfo* info, float parentSpan,
 			SetHighColor(kBasePieColor[colorIdx]);
 			FillEllipse(BRect(cx - kPieCenterSize, cy - kPieCenterSize,
 				cx + kPieCenterSize + 0.5, cy + kPieCenterSize + 0.5));
+
+			// Show directory total size.
+			size = info->size;
 			displayName = info->ref.name;
+
 			mySpan = 360.0;
 
 			// Record the segment for use during MouseMoved().
@@ -510,8 +509,15 @@ PieView::_DrawDirectory(BRect b, FileInfo* info, float parentSpan,
 
 		SetHighColor(kPieBGColor);
 		SetDrawingMode(B_OP_OVER);
-		DrawString(label.String(), BPoint(cx - labelWidth / 2.0, cy));
+		DrawString(label.String(), BPoint(cx - labelWidth / 2.0, cy - kSmallVMargin));
+
+		// show size of level 0
+		char sizeLabel[B_PATH_NAME_LENGTH];
+		string_for_size(size, sizeLabel, sizeof(sizeLabel));
+		DrawString(sizeLabel,
+			BPoint(cx - StringWidth(sizeLabel) / 2.0, cy + fFontHeight - kSmallVMargin));
 		SetDrawingMode(B_OP_COPY);
+
 		beginAngle = 0.0;
 	} else {
 		// Draw an exterior segment.

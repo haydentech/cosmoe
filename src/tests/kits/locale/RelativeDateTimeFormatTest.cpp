@@ -61,6 +61,9 @@ RelativeDateTimeFormatTest::TestFormat()
 		const char* relativeDate;
 	};
 
+	// If the unit test is run near a DST change, the weeks test can fail, so add a 1-hour+ buffer
+	static const int kDSTbuffer = 61 * kSecondsPerMinute;
+
 	static const Value values[] = {
 		{"en", "en_US", 0, "in 0 seconds"},
 		{"en", "en_US", 20, "in 20 seconds"},
@@ -79,10 +82,10 @@ RelativeDateTimeFormatTest::TestFormat()
 			"in 5 Tagen"},
 		{"de", "de_DE", -5 * kHoursPerDay * kMinutesPerHour * kSecondsPerMinute,
 			"vor 5 Tagen"},
-		{"en", "en_US", 3 * kDaysPerWeek * kHoursPerDay * kMinutesPerHour
-			* kSecondsPerMinute, "in 3 weeks"},
-		{"en", "en_US", -3 * kDaysPerWeek * kHoursPerDay * kMinutesPerHour
-			* kSecondsPerMinute, "3 weeks ago"},
+		{"en", "en_US", (3 * kDaysPerWeek * kHoursPerDay * kMinutesPerHour
+			* kSecondsPerMinute) + kDSTbuffer, "in 3 weeks"},
+		{"en", "en_US", (-3 * kDaysPerWeek * kHoursPerDay * kMinutesPerHour
+			* kSecondsPerMinute) - kDSTbuffer, "3 weeks ago"},
 		{"en", "en_US", 4 * kMaxDaysPerMonth * kHoursPerDay * kMinutesPerHour
 			* kSecondsPerMinute, "in 4 months"},
 		{"en", "en_US", -4 * kMaxDaysPerMonth * kHoursPerDay * kMinutesPerHour
