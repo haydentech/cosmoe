@@ -158,19 +158,26 @@ BNodeInfo::GetIcon(BBitmap* icon, icon_size which) const
 	if (icon == NULL)
 		return B_BAD_VALUE;
 
-	BRect bounds;
+	int32 iconWidth;
 	switch (which) {
 		case B_MINI_ICON:
-			bounds.Set(0, 0, 15, 15);
+			iconWidth = B_MINI_ICON;
 			break;
 		case B_LARGE_ICON:
-			bounds.Set(0, 0, 31, 31);
+			iconWidth = B_LARGE_ICON;
 			break;
 		default:
 			return B_BAD_VALUE;
 	}
 
-	if (icon->InitCheck() != B_OK || icon->Bounds() != bounds)
+	if (icon->InitCheck() != B_OK)
+		return B_BAD_VALUE;
+
+	if ((icon->Flags() & B_BITMAP_HIDPI) != 0)
+		iconWidth *= 2;
+
+	BRect bounds(0, 0, iconWidth - 1, iconWidth - 1);
+	if (icon->Bounds() != bounds)
 		return B_BAD_VALUE;
 
 	const char* iconAttribute = kNIIconAttribute;
