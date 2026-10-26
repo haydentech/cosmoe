@@ -1,9 +1,8 @@
-```bash
 #!/usr/bin/env bash
 set -euo pipefail
 
 # Release version series
-BASE_VERSION="0.9"
+BASE_VERSION="0.9.0"
 
 # Require execution from the repository root.
 if ! git rev-parse --show-toplevel >/dev/null 2>&1; then
@@ -13,10 +12,9 @@ fi
 
 cd "$(git rev-parse --show-toplevel)"
 
-# Require a clean working tree, including untracked files.
-if [[ -n "$(git status --porcelain)" ]]; then
-    echo "Error: Working tree is not clean." >&2
-    echo "Commit or stash your changes before releasing." >&2
+# Require GitHub CLI authentication before making any release changes.
+if ! gh auth status; then
+    echo "Error: GitHub CLI is not authenticated. Run 'gh auth login' first." >&2
     exit 1
 fi
 
@@ -37,18 +35,25 @@ if [[ "$(git rev-parse HEAD)" != "$(git rev-parse origin/master)" ]]; then
 fi
 
 # Generate today's release tag.
-VERSION="${BASE_VERSION}_$(date +%Y%m%d)"
+VERSION="v${BASE_VERSION}_$(date +%Y%m%d)"
 
-# Refuse to reuse an existing local or remote tag.
+# Reuse a local tag on this commit so an interrupted release can be retried.
+TAG_EXISTS_LOCALLY=0
 if git show-ref --verify --quiet "refs/tags/$VERSION"; then
-    echo "Error: Tag $VERSION already exists locally." >&2
-    exit 1
+    TAG_COMMIT="$(git rev-parse "refs/tags/$VERSION^{commit}")"
+    if [[ "$TAG_COMMIT" != "$(git rev-parse HEAD)" ]]; then
+        echo "Error: Local tag $VERSION does not point to HEAD." >&2
+        exit 1
+    fi
+    TAG_EXISTS_LOCALLY=1
 fi
 
-if git ls-remote --exit-code --tags origin "refs/tags/$VERSION" \
-    >/dev/null 2>&1; then
-    echo "Error: Tag $VERSION already exists remotely." >&2
-    exit 1
+if [[ "$TAG_EXISTS_LOCALLY" -eq 0 ]]; then
+    if git ls-remote --exit-code --tags origin "refs/tags/$VERSION" \
+        >/dev/null 2>&1; then
+        echo "Error: Tag $VERSION already exists remotely." >&2
+        exit 1
+    fi
 fi
 
 # Confirm before publishing.
@@ -61,8 +66,12 @@ if [[ "$CONFIRM" != "y" && "$CONFIRM" != "Y" ]]; then
     exit 0
 fi
 
-# Create and push the annotated tag.
-git tag -a "$VERSION" -m "Release $VERSION"
+# Create the annotated tag if this is a new release.
+if [[ "$TAG_EXISTS_LOCALLY" -eq 0 ]]; then
+    git tag -a "$VERSION" -m "Release $VERSION"
+fi
+
+# Push the tag; this is also safe when retrying an interrupted release.
 git push origin "$VERSION"
 
 # Publish the GitHub release and generate release notes.
@@ -72,4 +81,3 @@ gh release create "$VERSION" \
     --generate-notes
 
 echo "Release $VERSION created successfully."
-```
