@@ -523,6 +523,11 @@ NodeInfoTest::IconTest()
 		CHK(nodeInfo.GetIcon(&icon4, B_LARGE_ICON) == B_OK);
 		CHK(icon_equal(fIconL2, &icon4));
 		CheckIconAttr(node, fIconL2);
+
+		BBitmap hidpiMini(BRect(0, 0, 31, 31), B_BITMAP_HIDPI, B_RGBA32);
+		CHK(nodeInfo.GetIcon(&hidpiMini, B_MINI_ICON) == B_OK);
+		BBitmap hidpiLarge(BRect(0, 0, 63, 63), B_BITMAP_HIDPI, B_RGBA32);
+		CHK(nodeInfo.GetIcon(&hidpiLarge, B_LARGE_ICON) == B_OK);
 	}
 	// * bitmap color_space != B_CMAP8 => B_OK
 	NextSubTest();
