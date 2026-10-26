@@ -115,7 +115,7 @@ jobs:
         run: |
           dnf install -y \
             rpm-build \
-            gcc gcc-c++ \
+            gcc gcc-c++ git \
             meson ninja-build pkgconf-pkg-config \
             flex bison \
             cairo-devel fontconfig-devel freetype-devel glib2-devel \
