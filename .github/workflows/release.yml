@@ -123,7 +123,8 @@ jobs:
             pango-devel pixman-devel libpng-devel LibRaw-devel libtiff-devel \
             wayland-devel libwebp-devel \
             libX11-devel libXcursor-devel libXrandr-devel \
-            libxkbcommon-devel fuse3-devel zlib-ng-compat-devel
+            libxkbcommon-devel libxkbcommon-x11-devel \
+            fuse3-devel zlib-ng-compat-devel
 
       - name: Build RPM packages
         run: make rpm
