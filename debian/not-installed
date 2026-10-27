@@ -17,3 +17,4 @@ usr/local/share/icons/hicolor/48x48/apps/webpositive.png
 usr/local/share/icons/hicolor/512x512/apps/webpositive.png
 usr/local/share/icons/hicolor/64x64/apps/webpositive.png
 usr/local/share/icons/hicolor/icon-theme.cache
+etc/macos-bundle.sh
