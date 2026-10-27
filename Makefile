@@ -104,10 +104,10 @@ rpm:
 	rm -rf $(RPM_TOPDIR) rpm/packages
 	mkdir -p $(RPM_TOPDIR)/BUILD $(RPM_TOPDIR)/BUILDROOT $(RPM_TOPDIR)/RPMS \
 		$(RPM_TOPDIR)/SOURCES $(RPM_TOPDIR)/SRPMS rpm/packages
-	git ls-files -co --exclude-standard -z | grep -z -v -x 'src/apps/chart' | \
-		tar --null --files-from=- --create \
+	tar --exclude-vcs --exclude-vcs-ignores --exclude='src/apps/chart' \
+		--create \
 		--transform 's,^,cosmoe-$(RPM_VERSION)/,' \
-		--file=$(RPM_TOPDIR)/SOURCES/cosmoe-$(RPM_VERSION).tar
+		--file=$(RPM_TOPDIR)/SOURCES/cosmoe-$(RPM_VERSION).tar .
 	tar --append --dereference \
 		--transform 's,^,cosmoe-$(RPM_VERSION)/,' \
 		--file=$(RPM_TOPDIR)/SOURCES/cosmoe-$(RPM_VERSION).tar src/apps/chart
