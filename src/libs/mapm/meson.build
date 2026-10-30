@@ -52,3 +52,17 @@ dep_libmapm = declare_dependency(
     link_with: lib_libmapm,
     include_directories: include_directories('.'),
 )
+
+# Build-machine copy, used by the libbe tool library when cross-compiling.
+if meson.is_cross_build()
+    lib_libmapm_build = static_library(
+        'mapm-build',
+        srcs_mapm,
+        include_directories: include_directories(['.', '../../../headers/libs/mapm']),
+        c_args: ['-O2'],
+        native: true,
+        install: false,
+    )
+else
+    lib_libmapm_build = lib_libmapm
+endif

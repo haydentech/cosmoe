@@ -31,3 +31,9 @@ if is_windows
 endif
 
 srcs_support = files(srcs_support)
+
+# The build-machine copy of the kit follows the build machine, not the target.
+srcs_support_build = srcs_support
+if build_machine.system() == 'windows' and not is_windows
+    srcs_support_build += files('string_helper.cpp')
+endif

@@ -74,22 +74,9 @@ unit_tests_enabled = get_option('enable_unit_test_compile')
 # Initialize windres to disabler (will be replaced if on Windows)
 windres = disabler()
 
-# When cross-compiling to Windows, we need a native 'rc' tool to compile resources
-# Check for it early to give a clear error message
-if meson.is_cross_build() and is_windows
-	rc_native_path = get_option('native_rc_path')
-	if rc_native_path != ''
-		rc_native = find_program(rc_native_path, native: true, required: true)
-	else
-		rc_native = find_program('rc', native: true, required: false)
-	endif
-	if not rc_native.found()
-		error('Cross-compiling to Windows requires a native "rc" tool to be installed.\n' +
-		      'Please build src/bin/rc/rc-bootstrap first, or ensure "rc" is in your PATH.')
-	endif
-	message('Found native rc tool for cross-compilation: ' + rc_native.full_path())
-	
-	# Also need windres for compiling Windows .rc files to .o format
+# When cross-compiling to Windows, the .ico files that get embedded in the
+# executables are turned into resource objects by windres.
+if is_windows
 	windres = find_program('windres', required: true)
 	message('Found windres tool: ' + windres.full_path())
 endif
@@ -259,6 +246,23 @@ agg_inc = include_directories([
 
 config_h = configuration_data()
 
+# The tools that run while building are compiled with the build machine's
+# headers, so they need their own feature detection: a target without
+# <sys/xattr.h> (Windows) would otherwise send Linux sources down the Windows
+# path.  The build-machine answers are only needed when cross-compiling.
+config_h_build = configuration_data()
+
+# Kept as parallel lists rather than a list of dicts: Meson copies values on
+# dict lookup, and the configuration objects here must be mutated in place.
+config_headers = [config_h]
+config_cpp_compilers = [cpp]
+config_c_compilers = [cc]
+if meson.is_cross_build()
+	config_headers += [config_h_build]
+	config_cpp_compilers += [meson.get_compiler('cpp', native: true)]
+	config_c_compilers += [meson.get_compiler('c', native: true)]
+endif
+
 check_headers = [
 	'dirent.h',
 	'inttypes.h',
@@ -276,10 +280,12 @@ check_headers = [
 	'sys/xattr.h'
 ]
 
-foreach h : check_headers
-	if cpp.has_header(h)
-		config_h.set('HAVE_' + h.underscorify().to_upper(), 1)
-	endif
+foreach i : range(config_headers.length())
+	foreach h : check_headers
+		if config_cpp_compilers[i].has_header(h)
+			config_headers[i].set('HAVE_' + h.underscorify().to_upper(), 1)
+		endif
+	endforeach
 endforeach
 
 optional_libc_funcs = [
@@ -293,10 +299,12 @@ optional_libc_funcs = [
 	'unreachable',
 ]
 
-foreach func : optional_libc_funcs
-	if cc.has_function(func)
-		config_h.set('HAVE_' + func.to_upper(), 1)
-	endif
+foreach i : range(config_headers.length())
+	foreach func : optional_libc_funcs
+		if config_c_compilers[i].has_function(func)
+			config_headers[i].set('HAVE_' + func.to_upper(), 1)
+		endif
+	endforeach
 endforeach
 
 optional_builtins = {
@@ -304,30 +312,34 @@ optional_builtins = {
 	'builtin_bswap32': 'return __builtin_bswap32(0);',
 	'builtin_popcount': 'return __builtin_popcount(0);',
 }
-foreach name, check : optional_builtins
-	if cc.links('int main(void) { @0@ }'.format(check), name: name)
-		config_h.set('HAVE_' + name.to_upper(), 1)
-	endif
+foreach i : range(config_headers.length())
+	foreach name, check : optional_builtins
+		if config_c_compilers[i].links('int main(void) { @0@ }'.format(check), name: name)
+			config_headers[i].set('HAVE_' + name.to_upper(), 1)
+		endif
+	endforeach
 endforeach
 
-config_h.set('_GNU_SOURCE', '1')
-config_h.set('_ALL_SOURCE', '1')
-config_h.set('USE_RESIZE_POOL', '1')
+foreach config : config_headers
+	config.set('_GNU_SOURCE', '1')
+	config.set('_ALL_SOURCE', '1')
+	config.set('USE_RESIZE_POOL', '1')
 
-config_h.set_quoted('PACKAGE_STRING', 'cosmoe @0@'.format(version_cosmoe))
-config_h.set_quoted('PACKAGE_VERSION', version_cosmoe)
-config_h.set_quoted('VERSION', version_cosmoe)
-config_h.set_quoted('PACKAGE_URL', 'https://cosmoe.org')
-config_h.set_quoted('PACKAGE_BUGREPORT', 'https://gitlab.com/haydentech/cosmoe/-/issues')
+	config.set_quoted('PACKAGE_STRING', 'cosmoe @0@'.format(version_cosmoe))
+	config.set_quoted('PACKAGE_VERSION', version_cosmoe)
+	config.set_quoted('VERSION', version_cosmoe)
+	config.set_quoted('PACKAGE_URL', 'https://cosmoe.org')
+	config.set_quoted('PACKAGE_BUGREPORT', 'https://gitlab.com/haydentech/cosmoe/-/issues')
 
-config_h.set_quoted('PREFIX', dir_prefix)
-config_h.set_quoted('BINDIR', dir_bin)
-config_h.set_quoted('DATADIR', dir_data)
-config_h.set_quoted('LIBDIR', dir_lib)
-config_h.set_quoted('INCLUDEDIR', dir_include)
-config_h.set_quoted('SYSCONFDIR', dir_sysconf)
-config_h.set_quoted('LOCALSTATEDIR', dir_localstate)
-config_h.set_quoted('COSMOE_DATADIR', dir_cosmoe_data)
+	config.set_quoted('PREFIX', dir_prefix)
+	config.set_quoted('BINDIR', dir_bin)
+	config.set_quoted('DATADIR', dir_data)
+	config.set_quoted('LIBDIR', dir_lib)
+	config.set_quoted('INCLUDEDIR', dir_include)
+	config.set_quoted('SYSCONFDIR', dir_sysconf)
+	config.set_quoted('LOCALSTATEDIR', dir_localstate)
+	config.set_quoted('COSMOE_DATADIR', dir_cosmoe_data)
+endforeach
 
 # Platform-specific dependencies
 # xkbcommon is only needed on Linux (X11/Wayland)
@@ -424,6 +436,8 @@ endif
 if dep_pango.found() and dep_pangocairo.found() and dep_fontconfig.found() and dep_glib.found()
 	deps_cairo_shared += [ dep_pango, dep_pangocairo, dep_fontconfig, dep_glib ]
 	config_h.set('HAVE_PANGO', '1')
+	# The build-machine libbe always links pango, see src/kits/meson.build
+	config_h_build.set('HAVE_PANGO', '1')
 endif
 
 # JPEG library detection - try multiple names (OPTIONAL)
@@ -490,10 +504,23 @@ subdir('src/libs/mapm')
 subdir('src/libs/agg')
 subdir('src/libs/icon')
 subdir('src/system')    # libroot + kernel only (backends moved to src/backends)
-subdir('src/kits')      # libbe-bootstrap / libtracker
-subdir('src/bin')       # rc (uses libbe-bootstrap)
+subdir('src/kits')      # build-machine libbe, for the tools that run while building
+subdir('src/bin')       # rc (build-machine; the installed rc is linked below)
 
 # Build real libbe with embedded resources (after rc is available)
+
+# In a native build the kit sources were already compiled for the bootstrap
+# library, so reuse those objects.  In a cross build that library was built for
+# the build machine and cannot be reused: libbe compiles the sources itself.
+libbe_objects = meson.is_cross_build() ? [] : [lib_libbe_tool.extract_all_objects(recursive: false)]
+libbe_sources = []
+if meson.is_cross_build()
+    libbe_sources = [srcs_libbe]
+    if is_windows
+        libbe_sources += 'src/kits/libbe_dllmain.cpp'
+    endif
+endif
+
 # Compile resource files (same for all platforms)
 libbe_rsrc = custom_target('libbe_rsrc',
         input: [
@@ -517,7 +544,8 @@ libbe_rsrc = custom_target('libbe_rsrc',
         # Build real libbe with resources embedded
         lib_libbe = shared_library(
             'be',
-            objects: lib_libbe_bootstrap.extract_all_objects(recursive: false),
+            libbe_sources,
+            objects: libbe_objects,
             include_directories: [common_inc, tracker_inc],
             dependencies: [deps_libbe, deps_cairo_shared, deps_libbe_private],
 			link_with: [lib_localestub],
@@ -556,7 +584,8 @@ libbe_rsrc = custom_target('libbe_rsrc',
         # Build real libbe with resources embedded
         lib_libbe = shared_library(
             'be',
-            objects: [lib_libbe_bootstrap.extract_all_objects(recursive: false), libbe_resources_obj],
+            libbe_sources,
+            objects: libbe_objects + [libbe_resources_obj],
             include_directories: [common_inc, tracker_inc],
             dependencies: [deps_libbe, deps_cairo_shared, deps_libbe_private],
 			link_with: [lib_localestub],
@@ -587,7 +616,8 @@ libbe_rsrc = custom_target('libbe_rsrc',
         # Build real libbe.dll with resources embedded
         lib_libbe = shared_library(
             'be',
-            objects: [lib_libbe_bootstrap.extract_all_objects(recursive: false), libbe_resources_obj],
+            libbe_sources,
+            objects: libbe_objects + [libbe_resources_obj],
             include_directories: [common_inc, tracker_inc],
             dependencies: [deps_libbe, deps_libbe_private],
 			link_with: [lib_localestub],
@@ -632,42 +662,20 @@ subdir('src/kits/network')
 
 # Build bin tools with real libbe (they were skipped in src/bin to avoid bootstrap)
 
-# Build the final rc with real libbe (for installation)
-# For native non-cross builds, we built rc-bootstrap earlier that links to libbe-bootstrap
-# Now that libbe is available, build the real rc that will be installed
-if not meson.is_cross_build()
-    # Re-use the flex/bison generators from src/bin/rc
-    flex = find_program('flex', required: true)
-    bison = find_program('bison', required: true)
-    
-    lgen = generator(flex,
-        output : '@PLAINNAME@.yy.cpp',
-        arguments : ['-o', '@OUTPUT@', '@INPUT@'])
-    
-    lfiles_final = lgen.process('src/bin/rc/lexer.l')
-    
-    bgen = generator(bison,
-        output : ['@BASENAME@.tab.cpp', '@BASENAME@.hpp'],
-        arguments : ['@INPUT@', '--defines=@OUTPUT1@', '--output=@OUTPUT0@'])
-    
-    bfiles_final = bgen.process('src/bin/rc/parser.y')
-    
-    # Build final rc linked to real libbe
-    executable(
-        'rc',
-        'src/bin/rc/compile.cpp',
-        'src/bin/rc/decompile.cpp',
-        'src/bin/rc/rc.cpp',
-        'src/bin/rc/rdef.cpp',
-        lfiles_final,
-        bfiles_final,
-        dependencies: dep_libbe,
-        include_directories: [common_inc, include_directories('src/bin/rc')],
-        install: true,
-        install_dir: get_option('bindir'),
-    )
-    message('Native build: Building final rc with real libbe (for installation)')
-endif
+# The installed rc, linked against the real libbe: this is the one users and
+# the makefile-engine run.  In a cross build it is a target binary; the rc that
+# compiles resources during the build itself is the build-machine one from
+# src/bin/rc, which is why both exist.
+executable(
+    'rc',
+    srcs_rc,
+    lfiles,
+    bfiles,
+    dependencies: dep_libbe,
+    include_directories: [common_inc, include_directories('src/bin/rc')],
+    install: true,
+    install_dir: get_option('bindir'),
+)
 
 executable(
     'xres',
@@ -750,11 +758,14 @@ executable(
     install_dir: get_option('bindir'),
 )
 
-executable(
+# Install-time tool: it fills in the MIME database on the machine doing the
+# install, so it is built for the build machine.
+mime_db_builder_tool = executable(
 	'mime_db_builder',
 	'src/bin/mime_db_builder.cpp',
-	dependencies: dep_libbe,
+	dependencies: [dep_libbe_tool],
 	include_directories: common_inc,
+	native: meson.is_cross_build(),
 	install: false,
 )
 
@@ -837,27 +848,56 @@ executable(
 	install: true,
 )
 
-executable(
+linkcatkeys_sources = [
+	'src/tools/locale/linkcatkeys.cpp',
+	'src/tools/locale/PlainTextCatalog.cpp',
+	'src/tools/locale/DefaultCatalog.cpp',
+	'src/tools/locale/Catalog.cpp',
+	'src/tools/locale/CatalogData.cpp',
+	'src/kits/locale/HashMapCatalog.cpp',
+]
+linkcatkeys_cpp_args = [
+	'-D_HAIKU_BUILD_DONT_REMAP_FD_FUNCTIONS',
+	'-DB_AVOID_TRANSLATION_MACROS',
+	'-DB_TRANSLATE_NOCOLLECT(x)=x',
+	'-DB_TRANSLATE_MARK(x)=x',
+	'-DDefaultCatalog=ToolsDefaultCatalog',
+]
+
+linkcatkeys = executable(
 	'linkcatkeys',
-	[
-		'src/tools/locale/linkcatkeys.cpp',
-		'src/tools/locale/PlainTextCatalog.cpp',
-		'src/tools/locale/DefaultCatalog.cpp',
-		'src/tools/locale/Catalog.cpp',
-		'src/tools/locale/CatalogData.cpp',
-		'src/kits/locale/HashMapCatalog.cpp',
-	],
+	linkcatkeys_sources,
 	dependencies: dep_libbe,
 	include_directories: common_inc,
-	cpp_args: [
-		'-D_HAIKU_BUILD_DONT_REMAP_FD_FUNCTIONS',
-		'-DB_AVOID_TRANSLATION_MACROS',
-		'-DB_TRANSLATE_NOCOLLECT(x)=x',
-		'-DB_TRANSLATE_MARK(x)=x',
-		'-DDefaultCatalog=ToolsDefaultCatalog',
-	],
+	cpp_args: linkcatkeys_cpp_args,
 	install: true,
 )
+
+# Catalogs are linked at install time, which a cross build cannot do with the
+# target binary.  Native builds are their own build machine, so they reuse the
+# installed tool.
+if meson.is_cross_build()
+	# BCatalog, BCatalogData and BHashMapCatalog come from the build-machine
+	# libbe; only the plain-text and default catalog classes are tool-specific
+	# (the latter renamed by ToolsDefaultCatalog, see linkcatkeys_cpp_args).
+	# The entries the target tool lists for the other classes would define them
+	# a second time.
+	linkcatkeys_tool = executable(
+		'linkcatkeys-build',
+		[
+			'src/tools/locale/linkcatkeys.cpp',
+			'src/tools/locale/PlainTextCatalog.cpp',
+			'src/tools/locale/DefaultCatalog.cpp',
+		],
+		dependencies: [dep_libbe_tool],
+		include_directories: common_inc,
+		cpp_args: linkcatkeys_cpp_args,
+		native: true,
+		install: false,
+	)
+else
+	linkcatkeys_tool = linkcatkeys
+endif
 
 executable(
 	'dumpcatalog',
@@ -931,17 +971,15 @@ else
 endif
 
 # vicn2ico - Convert VICN resources to .ico format (Windows only)
-# Always build as native executable since it runs during the build process
+# Runs during the build, so it links the build-machine libbe, not the target.
 if is_windows
-    dep_libpng_native = dependency('libpng', native: true)
     vicn2ico_prog = executable(
         'vicn2ico',
         'src/bin/vicn2ico.cpp',
-        dependencies: [dep_libpng_native],
-        link_args: ['-lbe'],
+        dependencies: [dep_libbe_tool],
         include_directories: common_inc,
 		cpp_args: c_args + cpp_args,
-        native: true,
+        native: meson.is_cross_build(),
         install: false,
     )
 else
@@ -966,6 +1004,14 @@ subdir('src/servers/app/fonts')  # Font installation (macOS only)
 configure_file(input : 'config.h.meson',
     output : 'config.h',
     configuration : config_h)
+
+if meson.is_cross_build()
+    # Feature header for the build-machine tools; forced in with -include, so it
+    # is seen before the target's config.h (see src/kits/meson.build).
+    configure_file(input : 'config.h.meson',
+        output : 'config_build.h',
+        configuration : config_h_build)
+endif
 
 # Clean up stale libbe.so from /usr/local/lib if installing to a different directory
 # This prevents the dynamic linker from finding an outdated library

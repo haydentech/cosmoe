@@ -36,8 +36,7 @@ mkdir -p "$WIN_TEST_DIR"
 
 while IFS= read -r -d '' file; do
 	cp "$file" "$WIN_TEST_DIR/"
-done < <(find "$BUILD_DIR" -type f \( -name '*.exe' -o -name '*.dll' \) \
-	! -name 'libbe-bootstrap.dll' -print0)
+done < <(find "$BUILD_DIR" -type f \( -name '*.exe' -o -name '*.dll' \) -print0)
 
 shopt -s nullglob
 queue=("$WIN_TEST_DIR"/*.exe "$WIN_TEST_DIR"/*.dll)

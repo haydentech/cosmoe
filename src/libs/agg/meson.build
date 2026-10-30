@@ -39,3 +39,18 @@ dep_libagg = declare_dependency(
     link_with: lib_libagg,
     include_directories: agg_inc,
 )
+
+# Build-machine copy, used by the libbe tool library when cross-compiling.
+# A native build has a single machine, so the tool library reuses lib_libagg.
+if meson.is_cross_build()
+    lib_libagg_build = static_library(
+        'agg-build',
+        srcs_libagg,
+        include_directories: agg_inc,
+        c_args: ['-O2'],
+        native: true,
+        install: false,
+    )
+else
+    lib_libagg_build = lib_libagg
+endif
