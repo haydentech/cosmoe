@@ -11,6 +11,9 @@ bundle_path=$1
 executable_path=$2
 library_paths=${COSMOE_BUNDLE_LIBRARY_PATHS:-/opt/homebrew/lib:/usr/local/lib}
 extra_libraries=${COSMOE_BUNDLE_EXTRA_LIBRARIES:-}
+# Optional staging root for DESTDIR installs: absolute install paths that are
+# only present in the staging tree are resolved there instead.
+bundle_staging=${COSMOE_BUNDLE_DESTDIR:-}
 
 case "$bundle_path" in
 	'' | / | .)
@@ -56,6 +59,23 @@ canonical_path()
 	(cd "$directory" && printf '%s/%s\n' "$(pwd -P)" "$filename")
 }
 
+# Resolves an absolute path to a file that is readable right now, preferring
+# the real install location and falling back to the $DESTDIR staging tree.
+staged_path()
+{
+	if [ -f "$1" ]; then
+		printf '%s\n' "$1"
+		return 0
+	fi
+
+	if [ -n "$bundle_staging" ] && [ -f "$bundle_staging$1" ]; then
+		printf '%s\n' "$bundle_staging$1"
+		return 0
+	fi
+
+	return 1
+}
+
 expand_rpath()
 {
 	path=$1
@@ -80,26 +100,34 @@ resolve_dependency()
 
 	case "$dependency" in
 		/*)
-			[ -f "$dependency" ] && canonical_path "$dependency"
+			if staged=$(staged_path "$dependency"); then
+				canonical_path "$staged"
+			fi
 			return
 			;;
 		@loader_path/* | @executable_path/*)
 			candidate=$(expand_rpath "$dependency" "$loader_source")
-			[ -f "$candidate" ] && canonical_path "$candidate"
+			if staged=$(staged_path "$candidate"); then
+				canonical_path "$staged"
+			fi
 			return
 			;;
 		@rpath/*)
 			dependency_name=${dependency#@rpath/}
-			otool -l "$loader_source" | awk '
+			resolved=$(otool -l "$loader_source" | awk '
 				$1 == "cmd" && $2 == "LC_RPATH" { in_rpath = 1; next }
 				in_rpath && $1 == "path" { print $2; in_rpath = 0 }
 			' | while IFS= read -r rpath; do
 				candidate=$(expand_rpath "$rpath" "$loader_source")/$dependency_name
-				if [ -f "$candidate" ]; then
-					canonical_path "$candidate"
-					exit 0
+				if staged=$(staged_path "$candidate"); then
+					canonical_path "$staged"
+					break
 				fi
-			done
+			done)
+			if [ -n "$resolved" ]; then
+				printf '%s\n' "$resolved"
+				return
+			fi
 			;;
 	esac
 
@@ -107,9 +135,9 @@ resolve_dependency()
 	IFS=:
 	for directory in $library_paths; do
 		candidate=$directory/$(basename "$dependency")
-		if [ -f "$candidate" ]; then
+		if staged=$(staged_path "$candidate"); then
 			IFS=$old_ifs
-			canonical_path "$candidate"
+			canonical_path "$staged"
 			return
 		fi
 	done

@@ -153,6 +153,11 @@ if is_darwin
 		full_libdir = libdir
 	endif
 	add_project_link_arguments(['-Wl,-rpath,' + full_libdir], language: ['c', 'cpp', 'objc', 'objcpp'])
+
+	# Installs a built executable as a self-contained .app bundle: dylibs copied
+	# into Contents/Frameworks, Info.plist, icon, and code signature. Shared by
+	# every GUI app so the bundling logic lives in one place.
+	macos_app_bundle_script = meson.project_source_root() / 'data/develop/macos-app-bundle.sh'
 endif
 
 
