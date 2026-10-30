@@ -149,15 +149,8 @@ WINDOWS BUILD
 
 The Windows build is a bit more involved.  It is cross-compiled in WSL or Linux using [MXE (M cross environment)](https://mxe.cc/).
 
-You need an installed Linux build on the build machine first, since that provides some needed build tools.
-After that you can build the Windows version:
-
-```bash
-make
-make install
-```
-
-Edit Cosmoe's cross-compilation file `cross-mxe.ini` to ensure it accurately represents your MXE paths
+Edit Cosmoe's cross-compilation file `cross-mxe.ini` to ensure it accurately represents your MXE paths,
+then build the Windows version:
 
 ```bash
 make windows

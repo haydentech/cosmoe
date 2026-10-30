@@ -13,7 +13,7 @@
 #include <cstring>
 #include <cstdio>
 
-#include <NetworkKit.h>
+#include <Url.h>
 
 #include <cppunit/TestCaller.h>
 #include <cppunit/TestSuite.h>

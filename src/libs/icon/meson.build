@@ -57,6 +57,21 @@ dep_libicon = declare_dependency(
     include_directories: common_inc,
 )
 
+# Build-machine copy, used by the libbe tool library when cross-compiling.
+# IconUtils.cpp needs the Be API, which the tool library provides.
+if meson.is_cross_build()
+    lib_libicon_build = static_library(
+        'icon-build',
+        [srcs_libicon, 'IconUtils.cpp'],
+        include_directories: [libicon_inc, common_inc],
+        cpp_args: ['-O2', '-D__HAIKU__'],
+        native: true,
+        install: false,
+    )
+else
+    lib_libicon_build = lib_libicon
+endif
+
 # Now do the whole thing again, minus IconUtils.cpp and with a custom define, for the Icon-O-Matic version
 
 iconomatic_includes = [

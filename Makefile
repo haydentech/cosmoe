@@ -130,14 +130,10 @@ image: deb
 	fi; \
 	COSMOE_PASSWORD_HASH="$$hash" bash image/build-seed.sh
 
-# Windows cross-compilation using MXE on Linux or WSL
+# Windows cross-compilation using MXE on Linux or WSL.
 windows:
-	@echo "Building native rc-bootstrap for cross-compilation..."
-	meson setup builddir --reconfigure
-	ninja -C builddir src/bin/rc/rc-bootstrap
 	@echo "Configuring for Windows cross-compilation using MXE..."
-	meson setup --cross-file cross-mxe.ini $(BUILDDIR)-windows --reconfigure \
-		-Dnative_rc_path=$(CURDIR)/builddir/src/bin/rc/rc-bootstrap
+	meson setup --cross-file cross-mxe.ini $(BUILDDIR)-windows --reconfigure
 	@echo "Building Windows binaries..."
 	ninja -C $(BUILDDIR)-windows
 	@echo ""
