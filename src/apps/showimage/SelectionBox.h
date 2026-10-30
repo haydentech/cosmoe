@@ -33,7 +33,7 @@ public:
 			void				MouseMoved(ShowImageView* view, BPoint where);
 			void				MouseUp(ShowImageView* view, BPoint where);
 
-			void				Animate();
+			void				Animate(ShowImageView* view);
 			void				Draw(ShowImageView* view,
 									const BRect& updateRect) const;
 
