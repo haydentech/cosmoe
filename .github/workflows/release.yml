@@ -131,9 +131,21 @@ jobs:
 
       - name: Show generated packages
         run: |
-          echo "Generated Fedora packages:"
-          find rpm/packages -type f -name '*.rpm' -exec ls -lh {} +
+          echo "Fedora packages for release:"
+          find rpm/packages -type f -name '*.rpm' \
+            -not -name '*-debuginfo-*.rpm' -not -name '*-debugsource-*.rpm' \
+            -not -name '*.src.rpm' \
+            -exec ls -lh {} +
+          echo "Excluded from release (built, not published):"
+          find rpm/packages -type f \( -name '*-debuginfo-*.rpm' -o -name '*-debugsource-*.rpm' \
+            -o -name '*.src.rpm' \) \
+            -exec ls -lh {} +
 
+      # rpmbuild emits -debuginfo/-debugsource subpackages automatically. They are
+      # useful for debugging but too obscure to ship in every release, so they are
+      # built but filtered out before the artifact reaches the release job. The build
+      # is binary-only (rpmbuild -bb), so no source RPM is produced; it is excluded
+      # here as well to stay safe if that ever changes.
       - name: Upload RPM packages
         uses: actions/upload-artifact@v4
         with:
@@ -141,6 +153,10 @@ jobs:
           path: |
             rpm/packages/*.rpm
             rpm/packages/**/*.rpm
+            !rpm/packages/*.src.rpm
+            !rpm/packages/**/*.src.rpm
+            !rpm/packages/**/*-debuginfo-*.rpm
+            !rpm/packages/**/*-debugsource-*.rpm
 
 
   release:
@@ -172,7 +188,9 @@ jobs:
           TAG: ${{ github.ref_name }}
         run: |
           mapfile -d '' DEB_PACKAGES < <(find debian/packages -type f -name '*.deb' -print0)
-          mapfile -d '' RPM_PACKAGES < <(find rpm/packages -type f -name '*.rpm' -print0)
+          mapfile -d '' RPM_PACKAGES < <(find rpm/packages -type f -name '*.rpm' \
+            -not -name '*-debuginfo-*.rpm' -not -name '*-debugsource-*.rpm' \
+            -not -name '*.src.rpm' -print0)
 
           if gh release view "$TAG" >/dev/null 2>&1; then
               gh release upload "$TAG" "${DEB_PACKAGES[@]}" "${RPM_PACKAGES[@]}" --clobber

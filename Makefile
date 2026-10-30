@@ -103,7 +103,7 @@ rpm:
 	test -n "$(RPM_VERSION)" || { echo "Could not determine the Meson project version." >&2; exit 1; }
 	rm -rf $(RPM_TOPDIR) rpm/packages
 	mkdir -p $(RPM_TOPDIR)/BUILD $(RPM_TOPDIR)/BUILDROOT $(RPM_TOPDIR)/RPMS \
-		$(RPM_TOPDIR)/SOURCES $(RPM_TOPDIR)/SRPMS rpm/packages
+		$(RPM_TOPDIR)/SOURCES rpm/packages
 	tar --exclude-vcs --exclude-vcs-ignores --exclude='src/apps/chart' \
 		--create \
 		--transform 's,^,cosmoe-$(RPM_VERSION)/,' \
@@ -112,11 +112,10 @@ rpm:
 		--transform 's,^,cosmoe-$(RPM_VERSION)/,' \
 		--file=$(RPM_TOPDIR)/SOURCES/cosmoe-$(RPM_VERSION).tar src/apps/chart
 	gzip -n $(RPM_TOPDIR)/SOURCES/cosmoe-$(RPM_VERSION).tar
-	rpmbuild -ba $(RPM_SPEC) \
+	rpmbuild -bb $(RPM_SPEC) \
 		--define "_topdir $(RPM_TOPDIR)" \
 		--define "_sourcedir $(RPM_TOPDIR)/SOURCES" \
-		--define "_rpmdir $(CURDIR)/rpm/packages" \
-		--define "_srcrpmdir $(CURDIR)/rpm/packages"
+		--define "_rpmdir $(CURDIR)/rpm/packages"
 
 # Build a NoCloud seed ISO for a minimal Ubuntu Cosmoe test installation.
 # The image script stages only the runtime packages produced by `make deb`.
