@@ -105,7 +105,7 @@ SelectionBox::MouseUp(ShowImageView* view, BPoint where)
 
 
 void
-SelectionBox::Animate()
+SelectionBox::Animate(ShowImageView* view)
 {
 	// rotate up
 	uchar p = fPatternUp.data[0];
@@ -135,6 +135,10 @@ SelectionBox::Animate()
 	if (set)
 		p |= 0x80;
 	memset(fPatternRight.data, p, 8);
+
+	BRect dirty = _RectInView(view);
+	if (dirty.IsValid())
+		view->Invalidate(dirty);
 }
 
 

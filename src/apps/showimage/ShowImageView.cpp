@@ -253,8 +253,7 @@ ShowImageView::Pulse()
 {
 	// animate marching ants
 	if (fHasSelection && fAnimateSelection && fIsActiveWin) {
-		fSelectionBox.Animate();
-		fSelectionBox.Draw(this, Bounds());
+		fSelectionBox.Animate(this);
 	}
 
 	if (fHideCursor && !fHasSelection && !fShowingPopUpMenu && fIsActiveWin) {

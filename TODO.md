@@ -142,7 +142,10 @@ Cosmoe is designed to be as compatible as possible with Haiku/Be code, but there
   - Workaround: use XFS or Btrfs
 
 - BFont.StringWidth() takes an extra optional parameter in Cosmoe to set scaling mode
-  - If you were originally passing something besides an int32 into the second parameter, you'll need to cast to int32 to avoid an ambigious call between the 2 StringWidth methods.
+  - Normally, this is transparent to your code, but if you were originally passing something besides an int32 into the second parameter, you'll need to cast to int32 to avoid an ambigious call between the 2 StringWidth methods.
+
+- Haiku allows drawing outside of the Draw() loop (e.g. in a Pulse() call) without an Invalidate() being necessary
+  - Cosmoe requires an explicit Invalidate() for those pixels to reach the screen
 
 - Apps that need runtime lookup of their own Class::Instantiate(BMessage*) symbols need the following linker flags in their Makefile. Apps using only the built-in archivable classes do not need it.
 	ifeq ($(shell uname -s),Linux)
