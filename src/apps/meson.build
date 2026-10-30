@@ -224,8 +224,11 @@ foreach app_dir : app_dirs
             app_name)
     endif
 
-    if app_resource_defs.length() > 0
-        if is_darwin
+    if is_darwin
+        # The app is installed as a .app bundle on macOS, with every non-Apple
+        # dylib copied in so it runs without Homebrew installed.
+        app_icns = ''
+        if app_resource_defs.length() > 0
             custom_target(app_name + ' icns',
                 input : app_resources,
                 output : app_name + '.icns',
@@ -233,41 +236,17 @@ foreach app_dir : app_dirs
                 command : [vicn2icns_prog, '@INPUT@', '@OUTPUT@'],
                 build_by_default : true)
 
-            meson.add_install_script('sh', '-c', '''
-                APP_NAME="''' + app_name + '''"
-                PREFIX="''' + get_option('prefix') + '''"
-                BUNDLE_DIR="$DESTDIR${PREFIX}/Applications/${APP_NAME}.app"
-                mkdir -p "${BUNDLE_DIR}/Contents/MacOS"
-                mkdir -p "${BUNDLE_DIR}/Contents/Resources"
-                mv "$DESTDIR${PREFIX}/bin/${APP_NAME}" "${BUNDLE_DIR}/Contents/MacOS/"
-                cp "''' + meson.current_build_dir() + '''/${APP_NAME}.icns" "${BUNDLE_DIR}/Contents/Resources/"
-                cat > "${BUNDLE_DIR}/Contents/Info.plist" << PLIST
-<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<plist version="1.0">
-<dict>
-    <key>CFBundleExecutable</key>
-    <string>${APP_NAME}</string>
-    <key>CFBundleIconFile</key>
-    <string>${APP_NAME}.icns</string>
-    <key>CFBundleIdentifier</key>
-    <string>org.cosmoe.${APP_NAME}</string>
-    <key>CFBundleName</key>
-    <string>${APP_NAME}</string>
-    <key>CFBundlePackageType</key>
-    <string>APPL</string>
-    <key>CFBundleShortVersionString</key>
-    <string>1.0</string>
-    <key>CFBundleVersion</key>
-    <string>1</string>
-    <key>NSHighResolutionCapable</key>
-    <true/>
-</dict>
-</plist>
-PLIST
-            ''')
-        elif is_linux
-            meson.add_install_script('sh', '-c', '''
+            app_icns = meson.current_build_dir() / (app_name + '.icns')
+        endif
+
+        meson.add_install_script(
+            'sh', macos_app_bundle_script,
+            app_name,
+            get_option('prefix'),
+            app_icns,
+            version_cosmoe)
+    elif is_linux and app_resource_defs.length() > 0
+        meson.add_install_script('sh', '-c', '''
                 RSRC_FILE="''' + meson.current_build_dir() + '/' + app_name + '''.rsrc"
                 ICON_DIR="$DESTDIR''' + dir_data + '''/icons"
                 APP_NAME_LOWER="''' + app_name.to_lower() + '''"
@@ -281,7 +260,6 @@ PLIST
                     gtk-update-icon-cache -f -t "${ICON_DIR}/hicolor" 2>/dev/null || true
                 fi
             ''')
-        endif
     endif
 endforeach
 
