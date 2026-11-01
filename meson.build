@@ -152,6 +152,12 @@ endif
 if is_windows
 	add_project_arguments(['-D_WIN32', '-DWIN32', '-DUNICODE', '-D_UNICODE'], language: 'c')
 	add_project_arguments(['-D_WIN32', '-DWIN32', '-DUNICODE', '-D_UNICODE'], language: 'cpp')
+
+	# Some MinGW toolchains (Fedora's mingw64-win-iconv, for one) declare iconv()
+	# with a const input buffer instead of GNU libiconv's char**. win-iconv's
+	# header honors ICONV_CONST for exactly this case, and GNU libiconv ignores
+	# it, so defining it empty keeps one set of call sites working with both.
+	add_project_arguments('-DICONV_CONST=', language: 'cpp')
 endif
 
 

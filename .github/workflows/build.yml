@@ -134,3 +134,42 @@ jobs:
             BDirectory \
             BSymLink \
             BVolume
+
+
+  # Cross-compiles the Windows build with Fedora's MinGW-w64 packages, so
+  # breakage is caught without needing MXE. This only verifies that the tree
+  # compiles and links for Windows; running the binaries would need Wine.
+  windows_cross:
+    name: Windows Cross Build
+    runs-on: ubuntu-latest
+
+    container:
+      image: registry.fedoraproject.org/fedora:44
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v6
+
+      - name: Install dependencies
+        run: |
+          dnf install -y \
+            gcc gcc-c++ \
+            meson ninja-build pkgconf-pkg-config \
+            flex bison \
+            cairo-devel libpng-devel libjpeg-turbo-devel libtiff-devel \
+            libwebp-devel zlib-devel \
+            openssl-devel \
+            libicu-devel freetype-devel pango-devel \
+            pixman-devel fontconfig-devel glib2-devel \
+            libX11-devel libxkbcommon-devel \
+            mingw64-gcc mingw64-gcc-c++ mingw64-binutils \
+            mingw64-cairo mingw64-pango mingw64-glib2 mingw64-icu \
+            mingw64-fontconfig mingw64-libpng mingw64-zlib \
+            mingw64-libjpeg-turbo mingw64-libtiff mingw64-libwebp \
+            mingw64-openssl
+
+      - name: Configure
+        run: meson setup builddir-windows --cross-file cross-mingw.ini
+
+      - name: Build
+        run: ninja -C builddir-windows
