@@ -59,9 +59,22 @@ jobs:
 
 
   package-deb:
-    name: Build Debian Packages
+    name: Build Debian Packages (${{ matrix.ubuntu }})
     needs: build-and-test
-    runs-on: ubuntu-26.04
+
+    # Each Ubuntu release is built natively on that release, so the packages
+    # link against the system libraries users of that release actually have.
+    strategy:
+      fail-fast: false
+      matrix:
+        ubuntu:
+          - ubuntu-24.04
+          - ubuntu-26.04
+
+    runs-on: ${{ matrix.ubuntu }}
+
+    env:
+      UBUNTU_RELEASE: ${{ matrix.ubuntu }}
 
     steps:
       - name: Check out source
@@ -87,15 +100,23 @@ jobs:
         run: |
           make deb
 
+      # Both releases produce identically named packages, so tag each filename
+      # with its Ubuntu release to keep the release assets distinct.
+      - name: Tag packages with the Ubuntu release
+        run: |
+          for package in debian/packages/*.deb; do
+            mv -- "$package" "${package%.deb}.$UBUNTU_RELEASE.deb"
+          done
+
       - name: Show generated packages
         run: |
-          echo "Generated Debian packages:"
+          echo "Generated Debian packages for $UBUNTU_RELEASE:"
           ls -lh debian/packages/
 
       - name: Upload Debian packages
         uses: actions/upload-artifact@v4
         with:
-          name: deb-packages
+          name: deb-packages-${{ matrix.ubuntu }}
           path: debian/packages/*.deb
 
 
@@ -168,8 +189,9 @@ jobs:
       - name: Download Debian packages
         uses: actions/download-artifact@v5
         with:
-          name: deb-packages
+          pattern: deb-packages-*
           path: debian/packages
+          merge-multiple: true
 
       - name: Download RPM packages
         uses: actions/download-artifact@v5
