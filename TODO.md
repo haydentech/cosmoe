@@ -5,8 +5,6 @@
 - Cairo complains on exit due to non-empty object hash (i.e. memory leak)
   - This assert is currently disabled.
 
-- ShowImage selection rectangle does not do the "marching ants" animation
-
 - `BRecentFilesList` / `BRecentFolderList` / `BRecentAppList` only partially implemented
 
 - Drag-n-Drop from external sources is not yet implemented on any backend

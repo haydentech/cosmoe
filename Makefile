@@ -146,4 +146,40 @@ windows-clean:
 	rm -rf win-test
 	@echo "Windows build directory and win-test directory removed"
 
-.PHONY: build configure install clean distclean deb rpm image windows windows-clean
+# Windows cross-compilation using a distribution-provided MinGW-w64 toolchain.
+# bootstrap-mingw-toolchain.py downloads Fedora's mingw64-* packages and unpacks
+# them into $(WINDOWS_MINGW_TOOLCHAIN), so unlike "windows" this needs no local
+# MXE tree and no root. It keeps its own build and collection directories so the
+# two toolchains' runtime DLLs never mix. Point WINDOWS_MINGW_CROSS_FILE at a
+# cross file to use a toolchain that is already installed instead.
+WINDOWS_MINGW_BUILDDIR := builddir-windows-mingw
+WINDOWS_MINGW_TOOLCHAIN := mingw64-toolchain
+WINDOWS_MINGW_CROSS_FILE ?= $(WINDOWS_MINGW_TOOLCHAIN)/cross-mingw.ini
+WINDOWS_MINGW_OUTPUT := win-test-mingw
+WINDOWS_MINGW_BOOTSTRAP_ARGS ?=
+
+windows-mingw:
+	@if [ "$(origin WINDOWS_MINGW_CROSS_FILE)" = "file" ]; then \
+		echo "Preparing the MinGW-w64 toolchain..."; \
+		./bootstrap-mingw-toolchain.py $(WINDOWS_MINGW_TOOLCHAIN) $(WINDOWS_MINGW_BOOTSTRAP_ARGS) || exit 1; \
+	fi
+	@if [ -f $(WINDOWS_MINGW_BUILDDIR)/build.ninja ] && [ "$(WINDOWS_MINGW_CROSS_FILE)" -nt $(WINDOWS_MINGW_BUILDDIR)/build.ninja ]; then \
+		echo "Cross file is newer than $(WINDOWS_MINGW_BUILDDIR); reconfiguring from scratch"; \
+		rm -rf $(WINDOWS_MINGW_BUILDDIR); \
+	fi
+	@echo "Configuring for Windows cross-compilation using MinGW-w64..."
+	meson setup --cross-file $(WINDOWS_MINGW_CROSS_FILE) $(WINDOWS_MINGW_BUILDDIR) --reconfigure
+	@echo "Building Windows binaries..."
+	ninja -C $(WINDOWS_MINGW_BUILDDIR)
+	@echo ""
+	@echo "Windows build complete! Build artifacts are in $(WINDOWS_MINGW_BUILDDIR)/"
+	./collect-windows-binaries.sh $(WINDOWS_MINGW_BUILDDIR) $(WINDOWS_MINGW_CROSS_FILE) $(WINDOWS_MINGW_OUTPUT)
+	@echo "Windows apps and libraries collected into $(WINDOWS_MINGW_OUTPUT)/ directory"
+
+windows-mingw-clean:
+	rm -rf $(WINDOWS_MINGW_BUILDDIR)
+	rm -rf $(WINDOWS_MINGW_OUTPUT)
+	@echo "MinGW build directory and $(WINDOWS_MINGW_OUTPUT) directory removed"
+
+.PHONY: build configure install clean distclean deb rpm image windows windows-clean \
+	windows-mingw windows-mingw-clean
