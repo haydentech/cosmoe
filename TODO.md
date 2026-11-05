@@ -76,6 +76,9 @@
   - Drag selecting often leaves a small amount of stale pixels behind from the selection rectangle
   - Resizing the columns on open/save panels produces graphical artifacts and/or shows through to the window below
   - Certain Deskbar placements that should put Deskbar in the corner of the screen position it away from the corner horizontally
+  - If you resize a column in a Tracker window, then resize the window itself, the text for all items except the selected item(s) are drawn in gray instead of black
+  - If you resize a column in a Tracker window, the resize line remains after you finish resizing
+  - Some customs cursors work, others are corrupted
 
 
 ## Historical Bugs -- not specifically fixed, but haven't been seen in a long time, so may be fixed by another change

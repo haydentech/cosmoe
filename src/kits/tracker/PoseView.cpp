@@ -151,8 +151,6 @@ static struct attr_column_relation sAttrColumnMap[] = {
 		B_STAT_MODIFICATION_TIME },
 	{ AttrHashString(kAttrStatSize, B_OFF_T_TYPE),
 		B_STAT_SIZE },
-	{ AttrHashString(kAttrStatCreated, B_TIME_TYPE),
-		B_STAT_CREATION_TIME },
 	{ AttrHashString(kAttrStatMode, B_STRING_TYPE),
 		B_STAT_MODE }
 };

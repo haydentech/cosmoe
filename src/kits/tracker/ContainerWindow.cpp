@@ -3279,9 +3279,6 @@ BContainerWindow::NewAttributesMenu(BMenu* menu)
 	menu->AddItem(NewAttributeMenuItem(B_TRANSLATE("Modified"),
 		kAttrStatModified, B_TIME_TYPE, 150, B_ALIGN_LEFT, false, true));
 
-	menu->AddItem(NewAttributeMenuItem(B_TRANSLATE("Created"),
-		kAttrStatCreated, B_TIME_TYPE, 150, B_ALIGN_LEFT, false, true));
-
 	menu->AddItem(NewAttributeMenuItem(B_TRANSLATE("Kind"),
 		kAttrMIMEType, B_MIME_STRING_TYPE, 145, B_ALIGN_LEFT, false, false));
 

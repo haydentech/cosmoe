@@ -94,29 +94,16 @@ brew install meson ninja pkg-config cairo pango libpng jpeg-turbo webp icu4c fre
      <img src="https://cosmoe.org/assets/img/CosmoeWindows.png" alt="Windows PC running several Cosmoe-based apps" />
 </p>
 
-The Windows version is cross-compiled on Linux or WSL using MinGW64 MXE, and can
+The Windows version is cross-compiled on Linux or WSL, and the resulting binaries can
 run in Windows or WINE.
 
-1. In WSL, install prerequisites and link python
+In WSL, install prerequisites and link python
 
 ```bash
 sudo apt install automake autoconf libtool ruby unzip lzip gperf autopoint 7zip intltool libtool-bin python3-mako libssl-dev libpcre2-dev
 sudo ln -s /usr/bin/python3 /usr/local/bin/python
 ```
 
-2. Clone MXE:
-
-```bash
-git clone https://github.com/mxe/mxe.git ~/mxe
-```
-
-3. Build required MXE packages:
-
-```bash
-cd ~/mxe
-make MXE_TARGETS=x86_64-w64-mingw32.shared \
-     gcc cairo pango fontconfig freetype icu4c libpng jpeg libwebp
-```
 
 
 LINUX BUILD
@@ -147,20 +134,15 @@ Command-line programs are installed to `/usr/local/bin` and graphical programs a
 WINDOWS BUILD
 -------------
 
-The Windows build is a bit more involved.  It is cross-compiled in WSL or Linux using [MXE (M cross environment)](https://mxe.cc/).
-
-Edit Cosmoe's cross-compilation file `cross-mxe.ini` to ensure it accurately represents your MXE paths,
-then build the Windows version:
+The Windows build is cross-compiled in WSL or Linux.
 
 ```bash
-make windows
+make windows-mingw
 ```
 
-On Windows, apps are not installed yet, and the exe's and dll's must be collected
-into a test folder after building:
-```bash
-./collect-windows-binaries.sh
-```
+On Windows, apps are not installed yet, and the exe's and dll's are collected
+into the win-test-mingw folder after building.
+
 
 RUNNING COSMOE APPS
 -------------------
@@ -192,8 +174,14 @@ Showcase (formerly Guido) is my testbed for implementing new BeOS API
 functionality, so it's by far the best example of what Cosmoe can accomplish
 as a UI library.
 
-You can even try out Cosmoe as a complete desktop (as shown in the image at the
-top)...  Make sure you have labwc installed, then run ./start_cosmoe_desktop.sh
+You can even test out Cosmoe as a complete desktop (as shown in the image at the
+top)...  This will run Cosmoe desktop in a window.  Make sure you have labwc
+installed, then run ./start_cosmoe_desktop.sh
+
+To use Cosmoe as your desktop environment:
+1. On your login screen, select/enter your user name
+2. Select the gear icon
+3. Select Cosmoe from the list of available desktop environments
 
 
 PROBLEMS

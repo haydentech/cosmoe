@@ -42,7 +42,6 @@ namespace BPrivate {
 #define kAttrRealName						"_stat/realname"
 #define kAttrStatSize						"_stat/size"
 #define kAttrStatModified					"_stat/modified"
-#define kAttrStatCreated					"_stat/created"
 #define kAttrStatMode						"_stat/mode"
 #define kAttrStatOwner						"_stat/owner"
 #define kAttrStatGroup						"_stat/group"
