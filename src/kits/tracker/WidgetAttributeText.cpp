@@ -396,8 +396,6 @@ WidgetAttributeText::AttrAsString(const Model* model, BString* outString,
 		case B_TIME_TYPE:
 			if (strcmp(attrName, kAttrStatModified) == 0)
 				value = model->StatBuf()->st_mtime;
-			else if (strcmp(attrName, kAttrStatCreated) == 0)
-				value = model->StatBuf()->st_ctime;
 			else {
 				TRESPASS();
 				// not yet supported

@@ -68,10 +68,14 @@ static void
 _DrawLine(BPoseView* view, BPoint from, BPoint to)
 {
 	float tint = B_NO_TINT;
-	color_which highColor = view->HighUIColor(&tint);
+	color_which highUIColor = view->HighUIColor(&tint);
+	rgb_color highColor = view->HighColor();
 	view->SetHighUIColor(view->LowUIColor(), B_DARKEN_1_TINT);
 	view->StrokeLine(from, to);
-	view->SetHighUIColor(highColor, tint);
+	if (highUIColor == B_NO_COLOR)
+		view->SetHighColor(highColor);
+	else
+		view->SetHighUIColor(highUIColor, tint);
 }
 
 
@@ -689,10 +693,11 @@ ColumnResizeState::UndrawLine()
 	if (fLastLineDrawPos < 0)
 		return;
 
-	BRect poseViewBounds(fTitleView->PoseView()->Bounds());
-	poseViewBounds.left = fLastLineDrawPos;
-
-	_UndrawLine(fTitleView->PoseView(), poseViewBounds.LeftTop(), poseViewBounds.LeftBottom());
+	BPoseView* poseView = fTitleView->PoseView();
+	BRect dirtyRect(poseView->Bounds());
+	dirtyRect.left = fLastLineDrawPos - 2;
+	dirtyRect.right = fLastLineDrawPos + 2;
+	poseView->Invalidate(dirtyRect);
 }
 
 
