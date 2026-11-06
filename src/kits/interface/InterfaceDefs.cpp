@@ -96,6 +96,7 @@
 
 using namespace BPrivate;
 
+
 // some other weird struct exported by BeOS, it's not initialized, though
 struct general_ui_info {
 	rgb_color	background_color;
@@ -108,6 +109,8 @@ struct general_ui_info {
 struct general_ui_info general_info;
 
 menu_info *_menu_info_ptr_;
+
+
 static bool sUseDarkSystemColors = false;
 static std::vector<BControlLook*> sRetiredControlLooks;
 
@@ -1320,6 +1323,7 @@ _get_key_map(key_map **map, char **key_buffer, ssize_t *key_buffer_size)
 #endif
 }
 
+
 status_t
 _restore_key_map_()
 {
@@ -1718,6 +1722,46 @@ shift_color(rgb_color color, float shift)
 }
 
 
+//	#pragma mark - menu_info functions
+
+
+status_t
+_init_menu_info_()
+{
+	_menu_info_ptr_ = &BMenu::sMenuInfo;
+
+	status_t status = get_menu_info(&BMenu::sMenuInfo);
+
+	return status;
+}
+
+
+// TODO: Maybe the following two methods would fit better into
+// InterfaceDefs.cpp
+status_t
+set_menu_info(menu_info* info)
+{
+	LockedDesktopSettings settings;
+	settings.SetMenuInfo(*info);
+	return B_OK;
+}
+
+
+status_t
+get_menu_info(menu_info* info)
+{
+	if (!info)
+		return B_BAD_VALUE;
+
+	DesktopSettings settings;
+	settings.GetMenuInfo(*info);
+	return B_OK;
+}
+
+
+//	#pragma mark - initialization/destruction
+
+
 extern "C" status_t
 _init_interface_kit_()
 {
@@ -1768,9 +1812,7 @@ _init_interface_kit_()
 	if (status != B_OK)
 		return status;
 
-	_menu_info_ptr_ = &BMenu::sMenuInfo;
-
-	status = get_menu_info(&BMenu::sMenuInfo);
+	status = _init_menu_info_();
 	if (status != B_OK)
 		return status;
 

@@ -82,6 +82,9 @@ public:
 			bool				RemoveSelf()
 									{ return fView->_RemoveSelf(); }
 
+			void				PropagateMessage(BMessage* message)
+									{ return fView->_PropagateMessage(message); }
+
 			void				SetPattern(const ::pattern& pattern)
 									{ fView->_UpdatePattern(pattern); }
 

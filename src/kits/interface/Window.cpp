@@ -2836,8 +2836,9 @@ FrameMoved(origin);
 		}
 
 		case B_FONTS_UPDATED:
+		case B_MENU_INFO_UPDATED:
 		{
-			fTopView->_FontsUpdated(message);
+			fTopView->_PropagateMessage(message);
 			target->MessageReceived(message);
 			break;
 		}

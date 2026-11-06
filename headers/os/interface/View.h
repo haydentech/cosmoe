@@ -793,7 +793,7 @@ private:
 			void				_DrawBackground(BRect screenUpdateRect);
 			void				_Draw(BRect screenUpdateRect);
 			void				_DrawAfterChildren(BRect screenUpdateRect);
-			void				_FontsUpdated(BMessage*);
+			void				_PropagateMessage(BMessage*);
 			void				_Pulse();
 
 			void				_UpdateStateForRemove();

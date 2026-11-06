@@ -45,6 +45,7 @@ extern "C" void __libbe_initialize_before();
 #include <AutoLocker.h>
 #include <BitmapPrivate.h>
 #include <DraggerPrivate.h>
+#include <InterfacePrivate.h>
 #include <LinuxRemoteAppMessenger.h>
 #include <MessengerPrivate.h>
 #include <LooperList.h>
@@ -1152,22 +1153,14 @@ BApplication::DispatchMessage(BMessage* message, BHandler* handler)
 			break;
 		}
 
-		case B_COLORS_UPDATED:
-		{
-			AutoLocker<BLooperList> listLock(gLooperList);
-			if (!listLock.IsLocked())
-				break;
-
-			BWindow* window = NULL;
-			uint32 count = gLooperList.CountLoopers();
-			for (uint32 index = 0; index < count; ++index) {
-				window = dynamic_cast<BWindow*>(gLooperList.LooperAt(index));
-				if (window == NULL || (window != NULL && window->fOffscreen))
-					continue;
-				window->PostMessage(message);
-			}
+		case B_MENU_INFO_UPDATED:
+			_init_menu_info_();
+			_MessageAllWindows(message);
 			break;
-		}
+
+		case B_COLORS_UPDATED:
+			_MessageAllWindows(message);
+			break;
 
 		case _SHOW_DRAG_HANDLES_:
 		{
@@ -1681,6 +1674,24 @@ BApplication::_WindowAt(uint32 index, bool includeMenus) const
 	}
 
 	return NULL;
+}
+
+
+void
+BApplication::_MessageAllWindows(BMessage* message) const
+{
+	AutoLocker<BLooperList> listLock(gLooperList);
+	if (!listLock.IsLocked())
+		return;
+
+	BWindow* window = NULL;
+	uint32 count = gLooperList.CountLoopers();
+	for (uint32 index = 0; index < count; ++index) {
+		window = dynamic_cast<BWindow*>(gLooperList.LooperAt(index));
+		if (window == NULL || (window != NULL && window->fOffscreen))
+			continue;
+		window->PostMessage(message);
+	}
 }
 
 

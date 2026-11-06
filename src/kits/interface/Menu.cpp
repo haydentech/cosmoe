@@ -49,6 +49,7 @@
 #include <MenuWindow.h>
 #include <private/interface/NativeMenuPrivate.h>
 #include <ServerProtocol.h>
+#include <ViewPrivate.h>
 
 #include "utf8_functions.h"
 
@@ -246,6 +247,8 @@ const char* BPrivate::kEmptyMenuLabel = "<empty>";
 struct BMenu::LayoutData {
 	BSize	preferred;
 	uint32	lastResizingMode;
+
+	bool	usesMenuFont;
 };
 
 
@@ -269,6 +272,7 @@ BMenu::BMenu(const char* name, menu_layout layout)
 	fMaxContentWidth(0.0f),
 	fInitMatrixSize(NULL),
 	fExtraMenuData(NULL),
+	fLayoutData(NULL),
 	fTrigger(0),
 	fResizeToFit(true),
 	fUseCachedMenuLayout(false),
@@ -304,6 +308,7 @@ BMenu::BMenu(const char* name, float width, float height)
 	fMaxContentWidth(0.0f),
 	fInitMatrixSize(NULL),
 	fExtraMenuData(NULL),
+	fLayoutData(NULL),
 	fTrigger(0),
 	fResizeToFit(true),
 	fUseCachedMenuLayout(false),
@@ -339,6 +344,7 @@ BMenu::BMenu(BMessage* archive)
 	fMaxContentWidth(0.0f),
 	fInitMatrixSize(NULL),
 	fExtraMenuData(NULL),
+	fLayoutData(NULL),
 	fTrigger(0),
 	fResizeToFit(true),
 	fUseCachedMenuLayout(false),
@@ -431,6 +437,13 @@ BMenu::AttachedToWindow()
 	if (Superitem() == NULL)
 		_Install(Window());
 
+	if (dynamic_cast<BMenuWindow*>(Window()) == NULL) {
+		// If we're not in a MenuWindow, and we aren't in layouts mode,
+		// then we should not update our font automatically.
+		if ((Flags() & B_SUPPORTS_LAYOUT) == 0)
+			fLayoutData->usesMenuFont = false;
+	}
+
 	// The menu should be added to the menu hierarchy and made visible if:
 	// * the mouse is over the menu,
 	// * the user has requested the menu via the keyboard.
@@ -439,12 +452,11 @@ BMenu::AttachedToWindow()
 	bool keyDown = Supermenu() != NULL
 		? Supermenu()->fState == MENU_STATE_KEY_TO_SUBMENU : false;
 	fAttachAborted = _AddDynamicItems(keyDown);
+	if (fAttachAborted)
+		return;
 
-	if (!fAttachAborted) {
-		_CacheFontInfo();
-		_LayoutItems(0);
-		_UpdateWindowViewSize(false);
-	}
+	fUseCachedMenuLayout = false;
+	_RelayoutIfNeeded();
 }
 
 
@@ -542,6 +554,28 @@ BMenu::MessageReceived(BMessage* message)
 				// inform parent to update its modifier keys and relayout
 				BMessenger(fSuper).SendMessage(Window()->CurrentMessage());
 			}
+			break;
+
+		case B_MENU_INFO_UPDATED:
+			if (fLayoutData->usesMenuFont) {
+				BFont font;
+				font.SetFamilyAndStyle(sMenuInfo.f_family, sMenuInfo.f_style);
+				font.SetSize(sMenuInfo.font_size);
+				BView::SetFont(&font, B_FONT_FAMILY_AND_STYLE | B_FONT_SIZE);
+
+				InvalidateLayout();
+			}
+
+			// We need to propagate this message through any children
+			// which aren't currently attached to a window.
+			for (int32 i = 0; i < fItems.CountItems(); i++) {
+				BMenuItem* item = ItemAt(i);
+				BMenu* submenu = item->Submenu();
+				if (submenu != NULL && submenu->Window() == NULL)
+					BView::Private(submenu).PropagateMessage(message);
+			}
+
+			BView::MessageReceived(message);
 			break;
 
 		default:
@@ -683,6 +717,16 @@ BMenu::KeyDown(const char* bytes, int32 numBytes)
 			break;
 		}
 	}
+}
+
+
+void
+BMenu::SetFont(const BFont* font, uint32 mask)
+{
+	fLayoutData->usesMenuFont = false;
+	BView::SetFont(font, mask);
+
+	InvalidateLayout();
 }
 
 
@@ -1387,6 +1431,7 @@ BMenu::BMenu(BRect frame, const char* name, uint32 resizingMode, uint32 flags,
 	fMaxContentWidth(0.0f),
 	fInitMatrixSize(NULL),
 	fExtraMenuData(NULL),
+	fLayoutData(NULL),
 	fTrigger(0),
 	fResizeToFit(resizeToFit),
 	fUseCachedMenuLayout(false),
@@ -1600,7 +1645,7 @@ BMenu::_InitData(BMessage* archive)
 	BFont font;
 	font.SetFamilyAndStyle(sMenuInfo.f_family, sMenuInfo.f_style);
 	font.SetSize(sMenuInfo.font_size);
-	SetFont(&font, B_FONT_FAMILY_AND_STYLE | B_FONT_SIZE);
+	BView::SetFont(&font, B_FONT_FAMILY_AND_STYLE | B_FONT_SIZE);
 
 	fExtraMenuData = new (nothrow) BPrivate::ExtraMenuData();
 
@@ -1610,6 +1655,7 @@ BMenu::_InitData(BMessage* archive)
 
 	fLayoutData = new LayoutData;
 	fLayoutData->lastResizingMode = ResizingMode();
+	fLayoutData->usesMenuFont = true;
 
 	SetLowUIColor(B_MENU_BACKGROUND_COLOR);
 	SetViewColor(B_TRANSPARENT_COLOR);
@@ -1768,7 +1814,8 @@ BMenu::_Hide()
 }
 
 
-void BMenu::_ScriptReceived(BMessage* message)
+void
+BMenu::_ScriptReceived(BMessage* message)
 {
 	BMessage replyMsg(B_REPLY);
 	status_t err = B_BAD_SCRIPT_SYNTAX;
@@ -2037,7 +2084,8 @@ void BMenu::_ItemScriptReceived(BMessage* message, BMenuItem* item)
 }
 
 
-status_t BMenu::_ResolveItemSpecifier(const BMessage& specifier, int32 what,
+status_t
+BMenu::_ResolveItemSpecifier(const BMessage& specifier, int32 what,
 	BMenuItem*& item, int32 *_index)
 {
 	status_t err;
@@ -2073,7 +2121,8 @@ status_t BMenu::_ResolveItemSpecifier(const BMessage& specifier, int32 what,
 }
 
 
-status_t BMenu::_InsertItemAtSpecifier(const BMessage& specifier, int32 what,
+status_t
+BMenu::_InsertItemAtSpecifier(const BMessage& specifier, int32 what,
 	BMenuItem* item)
 {
 	status_t err;
@@ -2923,6 +2972,9 @@ BMenu::_ComputeMatrixLayout(BRect &frame)
 void
 BMenu::LayoutInvalidated(bool descendants)
 {
+	if (fLayoutData == NULL)
+		return;
+
 	fUseCachedMenuLayout = false;
 	fLayoutData->preferred.Set(B_SIZE_UNSET, B_SIZE_UNSET);
 }
@@ -3634,28 +3686,3 @@ BMenu::_QuitTracking(bool onlyThis)
 	_Hide();
 }
 
-
-//	#pragma mark - menu_info functions
-
-
-// TODO: Maybe the following two methods would fit better into
-// InterfaceDefs.cpp
-status_t
-set_menu_info(menu_info* info)
-{
-	LockedDesktopSettings settings;
-	settings.SetMenuInfo(*info);
-	return B_OK;
-}
-
-
-status_t
-get_menu_info(menu_info* info)
-{
-	if (!info)
-		return B_BAD_VALUE;
-
-	DesktopSettings settings;
-	settings.GetMenuInfo(*info);
-	return B_OK;
-}
