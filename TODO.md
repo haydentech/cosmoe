@@ -74,7 +74,6 @@
   - Some custom cursors work, others show a corrupted cursor image
   - File search instantly completes and shows no results (due to lack of fs indexes no doubt) -- we need a backup plan
   - When you empty the trash, the trash icon on the Desktop changes, but if you have the trash window open, the icon in the window does not
-  - Right-clicking an item and selecting "Identify" hangs Tracker
 
 
 ## Historical Bugs -- not specifically fixed, but haven't been seen in a long time, so may be fixed by another change

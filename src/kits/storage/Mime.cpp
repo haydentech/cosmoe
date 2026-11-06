@@ -11,6 +11,7 @@
 
 #include <errno.h>
 #include <new>
+#include <pthread.h>
 #include <stdlib.h>
 #include <string.h>
 #ifndef _WIN32
@@ -487,6 +488,26 @@ do_mime_update_entry(int32 what, const entry_ref& entry, bool recursive,
 }
 
 
+struct MimeUpdateRequest {
+	int32 what;
+	entry_ref entry;
+	bool recursive;
+	int32 force;
+	Database* database;
+};
+
+
+static void*
+run_mime_update(void* data)
+{
+	MimeUpdateRequest* request = static_cast<MimeUpdateRequest*>(data);
+	do_mime_update_entry(request->what, request->entry, request->recursive,
+		request->force, request->database);
+	delete request;
+	return NULL;
+}
+
+
 // Helper function that takes care of mime update calls
 status_t
 do_mime_update(int32 what, const char* path, int recursive,
@@ -504,10 +525,29 @@ do_mime_update(int32 what, const char* path, int recursive,
 	if (status != B_OK)
 		return status;
 
-	// Cosmoe does not have a registrar-side MIME worker, so perform the
-	// update in-process and synchronously (for now).
-	(void)synchronous;
-	return do_mime_update_entry(what, ref, recursive, force, database);
+	if (synchronous)
+		return do_mime_update_entry(what, ref, recursive, force, database);
+
+	MimeUpdateRequest* request = new(std::nothrow) MimeUpdateRequest;
+	if (request == NULL)
+		return B_NO_MEMORY;
+	request->what = what;
+	request->entry = ref;
+	request->recursive = recursive;
+	request->force = force;
+	request->database = database;
+	if (request->entry.name == NULL) {
+		delete request;
+		return B_NO_MEMORY;
+	}
+
+	pthread_t thread;
+	if (pthread_create(&thread, NULL, run_mime_update, request) != 0) {
+		delete request;
+		return B_ERROR;
+	}
+	pthread_detach(thread);
+	return B_OK;
 }
 
 
