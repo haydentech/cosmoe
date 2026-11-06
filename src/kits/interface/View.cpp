@@ -8144,7 +8144,9 @@ BView::_DrawAfterChildren(BRect updateRect)
 
 	// TODO: make states robust (see above)
 	PushState();
+	fCurrentUpdateRect = updateRect;
 	DrawAfterChildren(updateRect);
+	fCurrentUpdateRect.Set(0, 0, -1, -1);
 	PopState();
 	Flush();
 }

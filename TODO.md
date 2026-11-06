@@ -65,18 +65,16 @@
 
 - Tracker/libtracker/Deskbar bugs
   - "Get Info" on a file can sometimes hang Tracker (haven't seen this in a while)
-  - Dragging a file/folder to a new window (e.g. to copy/move it to a new location) does not work
-  - "Open With" always shows an empty menu
+  - Dragging a file/folder to a new window (e.g. to copy/move it to a new location) does not work yet
   - Tracker menus are layered behind the Deskbar on Wayland
   - Error on startup: "FlatIconImporter::_ParseSections() - error parsing shapes: Unknown error -1"
     - This is due to a malformed Person vector icon in Haiku
-  - If you open an Open File Panel a second time after having opened a file the first time, it locks up the window (and the app)
-    - Save panel doesn't do that though
-	  - If you cancel, you can open as many Open panels as you want, it's only when you really open a file that it happens
-  - Drag selecting often leaves a small amount of stale pixels behind from the selection rectangle
   - Resizing the columns on open/save panels produces graphical artifacts and/or shows through to the window below
   - Certain Deskbar placements that should put Deskbar in the corner of the screen position it away from the corner horizontally
   - Some custom cursors work, others show a corrupted cursor image
+  - File search instantly completes and shows no results (due to lack of fs indexes no doubt) -- we need a backup plan
+  - When you empty the trash, the trash icon on the Desktop changes, but if you have the trash window open, the icon in the window does not
+  - Right-clicking an item and selecting "Identify" hangs Tracker
 
 
 ## Historical Bugs -- not specifically fixed, but haven't been seen in a long time, so may be fixed by another change
@@ -89,6 +87,10 @@
 - Sometimes views don't draw completely on the inital draw, and a refresh/resize will be needed to force a full paint
 
 - Opening a menu can occasionally cause a crash, though haven't seen this in a while (Wayland)
+
+- If you open an Open File Panel a second time after having opened a file the first time, it locks up the window (and the app)
+	- Save panel doesn't do that though
+	- If you cancel, you can open as many Open panels as you want, it's only when you really open a file that it happens
 
 
 ## Platform-Specific Bugs
