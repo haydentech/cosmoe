@@ -1091,6 +1091,29 @@ dev_t next_dev(int32 *pos)
 #endif
 }
 
+#ifdef __linux__
+/*! Checks whether the file system mounted at \a mountPoint supports user
+	extended attributes. This is a non-mutating probe: file systems that support
+	them report ENODATA for a missing attribute, while file systems without
+	support (or with user xattr support disabled) report EOPNOTSUPP/ENOTSUP.
+	Unreadable mount points are conservatively reported as unsupported.
+*/
+static int
+xattr_supported_on_mount(const char *mountPoint)
+{
+#if defined(HAVE_SYS_XATTR_H)
+	if (getxattr(mountPoint, "user.cosmoe.probe", NULL, 0) >= 0)
+		return 1;
+
+	return errno == ENODATA;
+#else
+	(void)mountPoint;
+	return 0;
+#endif
+}
+#endif
+
+
 int	fs_stat_dev(dev_t dev, fs_info *info)
 {
 	if (dev == (dev_t)-1 || info == NULL) {
@@ -1147,6 +1170,12 @@ int	fs_stat_dev(dev_t dev, fs_info *info)
 		info->flags |= B_FS_IS_PERSISTENT;
 		if (vfs.f_flag & ST_RDONLY)
 			info->flags |= B_FS_IS_READONLY;
+
+		/* Attributes are stored as user.* xattrs; only claim support for
+		   file systems that actually accept them. B_FS_HAS_QUERY follows
+		   once the userspace query engine is available. */
+		if (xattr_supported_on_mount(ent->mnt_dir))
+			info->flags |= B_FS_HAS_ATTR;
 		if (vfs.f_flag & ST_NOSUID)
 			; /* not mapped but kept for future */
 

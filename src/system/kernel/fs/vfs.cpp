@@ -634,13 +634,22 @@ BPrivate::Storage::close_attr_dir(int dir)
 // Query Functions
 //------------------------------------------------------------------------------
 
-status_t
-_kern_open_query(dev_t device, const char *query, uint32 flags, int &result)
+int
+_kern_open_query(dev_t device, const char* query, size_t queryLength,
+	uint32 flags, port_id port, int32 token)
 {
-	if (flags & B_LIVE_QUERY)
-		return B_BAD_VALUE;
-	result = -1;
-	return (result < 0) ? errno : B_OK;
+	(void)device;
+	(void)query;
+	(void)queryLength;
+	(void)flags;
+	(void)port;
+	(void)token;
+
+	// Queries are served by a userspace engine on Cosmoe; report the missing
+	// support until that engine is wired up. Must be a negative fd, since
+	// Cosmoe's B_NOT_SUPPORTED is a positive status code.
+	errno = ENOTSUP;
+	return -1;
 }
 
 //------------------------------------------------------------------------------

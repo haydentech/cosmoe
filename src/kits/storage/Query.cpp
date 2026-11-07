@@ -11,13 +11,23 @@
 
 #include <Query.h>
 
+#include <errno.h>
+#include <fcntl.h>
+#include <new>
+#include <string.h>
+#include <time.h>
+#include <unistd.h>
 
 #include <Entry.h>
+#include <fs_query.h>
+#include <parsedate.h>
 #include <Volume.h>
 
 #include <MessengerPrivate.h>
-#include "kernel_interface.h"
+#include <syscalls.h>
+
 #include "QueryPredicate.h"
+#include "storage_support.h"
 
 
 using namespace std;
@@ -36,13 +46,13 @@ BQuery::BQuery()
 	fToken(0),
 	fQueryFd(-1)
 {
-	// No-op: maintained for historical reasons
 }
 
 
 // Frees all resources associated with the object.
 BQuery::~BQuery()
 {
+	Clear();
 }
 
 
@@ -50,7 +60,26 @@ BQuery::~BQuery()
 status_t
 BQuery::Clear()
 {
-	return B_ERROR;
+	// close the currently open query
+	status_t error = B_OK;
+	if (fQueryFd >= 0) {
+		error = _kern_close(fQueryFd);
+		fQueryFd = -1;
+	}
+
+	// delete the predicate stack and the predicate
+	delete fStack;
+	fStack = NULL;
+	delete[] fPredicate;
+	fPredicate = NULL;
+
+	// reset the other parameters
+	fDevice = (dev_t)B_ERROR;
+	fFlags = 0;
+	fPort = B_ERROR;
+	fToken = 0;
+
+	return error;
 }
 
 
@@ -58,7 +87,7 @@ BQuery::Clear()
 status_t
 BQuery::PushAttr(const char* attrName)
 {
-	return B_ERROR;
+	return _PushNode(new(nothrow) AttributeNode(attrName), true);
 }
 
 
@@ -66,7 +95,29 @@ BQuery::PushAttr(const char* attrName)
 status_t
 BQuery::PushOp(query_op op)
 {
-	return B_ERROR;
+	status_t error = B_OK;
+	switch (op) {
+		case B_EQ:
+		case B_GT:
+		case B_GE:
+		case B_LT:
+		case B_LE:
+		case B_NE:
+		case B_CONTAINS:
+		case B_BEGINS_WITH:
+		case B_ENDS_WITH:
+		case B_AND:
+		case B_OR:
+			error = _PushNode(new(nothrow) BinaryOpNode(op), true);
+			break;
+		case B_NOT:
+			error = _PushNode(new(nothrow) UnaryOpNode(op), true);
+			break;
+		default:
+			error = _PushNode(new(nothrow) SpecialOpNode(op), true);
+			break;
+	}
+	return error;
 }
 
 
@@ -74,7 +125,7 @@ BQuery::PushOp(query_op op)
 status_t
 BQuery::PushUInt32(uint32 value)
 {
-	return B_ERROR;
+	return _PushNode(new(nothrow) UInt32ValueNode(value), true);
 }
 
 
@@ -82,7 +133,7 @@ BQuery::PushUInt32(uint32 value)
 status_t
 BQuery::PushInt32(int32 value)
 {
-	return B_ERROR;
+	return _PushNode(new(nothrow) Int32ValueNode(value), true);
 }
 
 
@@ -90,7 +141,7 @@ BQuery::PushInt32(int32 value)
 status_t
 BQuery::PushUInt64(uint64 value)
 {
-	return B_ERROR;
+	return _PushNode(new(nothrow) UInt64ValueNode(value), true);
 }
 
 
@@ -98,7 +149,7 @@ BQuery::PushUInt64(uint64 value)
 status_t
 BQuery::PushInt64(int64 value)
 {
-	return B_ERROR;
+	return _PushNode(new(nothrow) Int64ValueNode(value), true);
 }
 
 
@@ -106,7 +157,7 @@ BQuery::PushInt64(int64 value)
 status_t
 BQuery::PushFloat(float value)
 {
-	return B_ERROR;
+	return _PushNode(new(nothrow) FloatValueNode(value), true);
 }
 
 
@@ -114,7 +165,7 @@ BQuery::PushFloat(float value)
 status_t
 BQuery::PushDouble(double value)
 {
-	return B_ERROR;
+	return _PushNode(new(nothrow) DoubleValueNode(value), true);
 }
 
 
@@ -122,7 +173,7 @@ BQuery::PushDouble(double value)
 status_t
 BQuery::PushString(const char* value, bool caseInsensitive)
 {
-	return B_ERROR;
+	return _PushNode(new(nothrow) StringNode(value, caseInsensitive), true);
 }
 
 
@@ -130,7 +181,10 @@ BQuery::PushString(const char* value, bool caseInsensitive)
 status_t
 BQuery::PushDate(const char* date)
 {
-	return B_ERROR;
+	if (date == NULL || !date[0] || parsedate(date, time(NULL)) < 0)
+		return B_BAD_VALUE;
+
+	return _PushNode(new(nothrow) DateNode(date), true);
 }
 
 
@@ -138,7 +192,17 @@ BQuery::PushDate(const char* date)
 status_t
 BQuery::SetVolume(const BVolume* volume)
 {
-	return B_ERROR;
+	if (volume == NULL)
+		return B_BAD_VALUE;
+	if (_HasFetched())
+		return B_NOT_ALLOWED;
+
+	if (volume->InitCheck() == B_OK)
+		fDevice = volume->Device();
+	else
+		fDevice = (dev_t)B_ERROR;
+
+	return B_OK;
 }
 
 
@@ -146,7 +210,12 @@ BQuery::SetVolume(const BVolume* volume)
 status_t
 BQuery::SetPredicate(const char* expression)
 {
-	return B_ERROR;
+	status_t error = (expression ? B_OK : B_BAD_VALUE);
+	if (error == B_OK && _HasFetched())
+		error = B_NOT_ALLOWED;
+	if (error == B_OK)
+		error = _SetPredicate(expression);
+	return error;
 }
 
 
@@ -154,14 +223,27 @@ BQuery::SetPredicate(const char* expression)
 status_t
 BQuery::SetTarget(BMessenger messenger)
 {
-	return B_ERROR;
+	status_t error = (messenger.IsValid() ? B_OK : B_BAD_VALUE);
+	if (error == B_OK && _HasFetched())
+		error = B_NOT_ALLOWED;
+	if (error == B_OK) {
+		BMessenger::Private messengerPrivate(messenger);
+		fPort = messengerPrivate.Port();
+		fToken = (messengerPrivate.IsPreferredTarget()
+			? -1 : messengerPrivate.Token());
+	}
+	return error;
 }
 
 
 status_t
 BQuery::SetFlags(uint32 flags)
 {
-	return B_ERROR;
+	if (_HasFetched())
+		return B_NOT_ALLOWED;
+
+	fFlags = (flags & ~B_LIVE_QUERY);
+	return B_OK;
 }
 
 
@@ -169,7 +251,7 @@ BQuery::SetFlags(uint32 flags)
 bool
 BQuery::IsLive() const
 {
-	return false;
+	return fPort >= 0;
 }
 
 
@@ -177,7 +259,16 @@ BQuery::IsLive() const
 status_t
 BQuery::GetPredicate(char* buffer, size_t length)
 {
-	return B_ERROR;
+	status_t error = (buffer ? B_OK : B_BAD_VALUE);
+	if (error == B_OK)
+		_EvaluateStack();
+	if (error == B_OK && !fPredicate)
+		error = B_NO_INIT;
+	if (error == B_OK && length <= strlen(fPredicate))
+		error = B_BAD_VALUE;
+	if (error == B_OK)
+		strcpy(buffer, fPredicate);
+	return error;
 }
 
 
@@ -186,7 +277,14 @@ BQuery::GetPredicate(char* buffer, size_t length)
 status_t
 BQuery::GetPredicate(BString* predicate)
 {
-	return B_ERROR;
+	status_t error = (predicate ? B_OK : B_BAD_VALUE);
+	if (error == B_OK)
+		_EvaluateStack();
+	if (error == B_OK && !fPredicate)
+		error = B_NO_INIT;
+	if (error == B_OK)
+		predicate->SetTo(fPredicate);
+	return error;
 }
 
 
@@ -194,7 +292,13 @@ BQuery::GetPredicate(BString* predicate)
 size_t
 BQuery::PredicateLength()
 {
-	return 0;
+	status_t error = _EvaluateStack();
+	if (error == B_OK && !fPredicate)
+		error = B_NO_INIT;
+	size_t size = 0;
+	if (error == B_OK)
+		size = strlen(fPredicate) + 1;
+	return size;
 }
 
 
@@ -202,7 +306,7 @@ BQuery::PredicateLength()
 dev_t
 BQuery::TargetDevice() const
 {
-	return (dev_t)B_ERROR;
+	return fDevice;
 }
 
 
@@ -210,7 +314,29 @@ BQuery::TargetDevice() const
 status_t
 BQuery::Fetch()
 {
-	return B_ERROR;
+	if (_HasFetched())
+		return B_NOT_ALLOWED;
+
+	_EvaluateStack();
+
+	if (!fPredicate || fDevice < 0)
+		return B_NO_INIT;
+
+	BString parsedPredicate;
+	_ParseDates(parsedPredicate);
+
+	fQueryFd = _kern_open_query(fDevice,
+		parsedPredicate.String(), parsedPredicate.Length(),
+		fFlags | ((fPort >= 0) ? B_LIVE_QUERY : 0),
+		fPort, fToken);
+	if (fQueryFd < 0)
+		return fQueryFd;
+
+#ifndef _WIN32
+	// Don't let child processes inherit the result descriptor.
+	fcntl(fQueryFd, F_SETFD, FD_CLOEXEC);
+#endif
+	return B_OK;
 }
 
 
@@ -221,7 +347,14 @@ BQuery::Fetch()
 status_t
 BQuery::GetNextEntry(BEntry* entry, bool traverse)
 {
-	return B_ERROR;
+	status_t error = (entry ? B_OK : B_BAD_VALUE);
+	if (error == B_OK) {
+		entry_ref ref;
+		error = GetNextRef(&ref);
+		if (error == B_OK)
+			error = entry->SetTo(&ref, traverse);
+	}
+	return error;
 }
 
 
@@ -229,7 +362,30 @@ BQuery::GetNextEntry(BEntry* entry, bool traverse)
 status_t
 BQuery::GetNextRef(entry_ref* ref)
 {
-	return B_ERROR;
+	status_t error = (ref ? B_OK : B_BAD_VALUE);
+	if (error == B_OK && !_HasFetched())
+		error = B_FILE_ERROR;
+	if (error == B_OK) {
+		BPrivate::Storage::LongDirEntry longEntry;
+		struct dirent* entry = longEntry.dirent();
+		bool next = true;
+		while (error == B_OK && next) {
+			if (GetNextDirents(entry, sizeof(longEntry), 1) != 1) {
+				error = B_ENTRY_NOT_FOUND;
+			} else {
+				next = (!strcmp(entry->d_name, ".")
+					|| !strcmp(entry->d_name, ".."));
+			}
+		}
+		if (error == B_OK) {
+			// Cosmoe's dirent has no d_pdev/d_pino, and entry_ref::name
+			// carries the full path -- mirror BDirectory::GetNextRef().
+			ref->device = 0;
+			ref->directory = entry->d_ino;
+			error = ref->set_name(entry->d_name);
+		}
+	}
+	return error;
 }
 
 
@@ -238,7 +394,12 @@ BQuery::GetNextRef(entry_ref* ref)
 int32
 BQuery::GetNextDirents(struct dirent* buffer, size_t length, int32 count)
 {
-	return B_ERROR;
+	if (!buffer)
+		return B_BAD_VALUE;
+	if (!_HasFetched())
+		return B_FILE_ERROR;
+
+	return _kern_read_dir(fQueryFd, NULL, buffer, length, count);
 }
 
 
@@ -246,7 +407,14 @@ BQuery::GetNextDirents(struct dirent* buffer, size_t length, int32 count)
 status_t
 BQuery::Rewind()
 {
-	return B_ERROR;
+	if (!_HasFetched())
+		return B_FILE_ERROR;
+
+	// The query engine hands out a seekable result stream.
+	if (lseek(fQueryFd, 0, SEEK_SET) < 0)
+		return errno;
+
+	return B_OK;
 }
 
 
@@ -265,7 +433,7 @@ BQuery::CountEntries()
 bool
 BQuery::_HasFetched() const
 {
-	return false;
+	return fQueryFd >= 0;
 }
 
 
@@ -293,7 +461,24 @@ BQuery::_HasFetched() const
 status_t
 BQuery::_PushNode(QueryNode* node, bool deleteOnError)
 {
-	return B_ERROR;
+	status_t error = (node ? B_OK : B_NO_MEMORY);
+	if (error == B_OK && _HasFetched())
+		error = B_NOT_ALLOWED;
+
+	// allocate the stack, if necessary
+	if (error == B_OK && !fStack) {
+		fStack = new(nothrow) QueryStack;
+		if (!fStack)
+			error = B_NO_MEMORY;
+	}
+
+	if (error == B_OK)
+		error = fStack->PushNode(node);
+
+	if (error != B_OK && deleteOnError)
+		delete node;
+
+	return error;
 }
 
 
@@ -310,7 +495,22 @@ BQuery::_PushNode(QueryNode* node, bool deleteOnError)
 status_t
 BQuery::_SetPredicate(const char* expression)
 {
-	return B_ERROR;
+	status_t error = B_OK;
+
+	// unset the old predicate
+	delete[] fPredicate;
+	fPredicate = NULL;
+
+	// set the new one
+	if (expression) {
+		fPredicate = new(nothrow) char[strlen(expression) + 1];
+		if (fPredicate)
+			strcpy(fPredicate, expression);
+		else
+			error = B_NO_MEMORY;
+	}
+
+	return error;
 }
 
 
@@ -328,7 +528,26 @@ BQuery::_SetPredicate(const char* expression)
 status_t
 BQuery::_EvaluateStack()
 {
-	return B_ERROR;
+	status_t error = B_OK;
+	if (fStack) {
+		_SetPredicate(NULL);
+		if (_HasFetched())
+			error = B_NOT_ALLOWED;
+
+		// convert the stack to a tree and evaluate it
+		QueryNode* node = NULL;
+		if (error == B_OK)
+			error = fStack->ConvertToTree(node);
+		BString predicate;
+		if (error == B_OK)
+			error = node->GetString(predicate);
+		if (error == B_OK)
+			error = _SetPredicate(predicate.String());
+
+		delete fStack;
+		fStack = NULL;
+	}
+	return error;
 }
 
 
@@ -339,7 +558,35 @@ BQuery::_EvaluateStack()
 void
 BQuery::_ParseDates(BString& parsedPredicate)
 {
-	// No-op: maintained for historical reasons
+	const char* start = fPredicate;
+	const char* pos = start;
+	bool quotes = false;
+
+	while (pos[0]) {
+		if (pos[0] == '\\') {
+			pos++;
+			continue;
+		}
+		if (pos[0] == '"')
+			quotes = !quotes;
+		else if (!quotes && pos[0] == '%') {
+			const char* end = strchr(pos + 1, '%');
+			if (end == NULL)
+				break;
+
+			parsedPredicate.Append(start, pos - start);
+			start = end + 1;
+
+			// We have a date string
+			BString date(pos + 1, start - 1 - pos);
+			parsedPredicate << parsedate(date.String(), time(NULL));
+
+			pos = end;
+		}
+		pos++;
+	}
+
+	parsedPredicate.Append(start, pos - start);
 }
 
 
@@ -350,4 +597,3 @@ void BQuery::_QwertyQuery3() {}
 void BQuery::_QwertyQuery4() {}
 void BQuery::_QwertyQuery5() {}
 void BQuery::_QwertyQuery6() {}
-

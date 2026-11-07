@@ -376,7 +376,13 @@ BVolume::KnowsAttr(void) const
 bool
 BVolume::KnowsQuery(void) const
 {
-	return false;
+	// check initialization
+	status_t error = (InitCheck() == B_OK ? B_OK : B_BAD_VALUE);
+	// get FS stat
+	fs_info info;
+	if (error == B_OK && fs_stat_dev(fDevice, &info) != 0)
+		error = _VolumeErrorForErrno(errno);
+	return (error == B_OK && (info.flags & B_FS_HAS_QUERY));
 }
 
 

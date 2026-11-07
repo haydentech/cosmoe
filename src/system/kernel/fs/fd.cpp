@@ -203,7 +203,7 @@ _kern_read_dir(int dir, DIR** dirDir, struct dirent *buffer, size_t length, uint
 {
 	ssize_t result = 0;
 
-	if (buffer == NULL)
+	if (buffer == NULL || dirDir == NULL)
 		return B_BAD_VALUE;
 
 #if defined(_WIN32)

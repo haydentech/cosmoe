@@ -108,6 +108,15 @@ if not is_windows
 endif
 add_project_arguments([c_args, cpp_args], language: 'cpp')
 
+if meson.is_cross_build()
+	build_cc = meson.get_compiler('c', native: true)
+	build_cpp = meson.get_compiler('cpp', native: true)
+	add_project_arguments(build_cc.get_supported_arguments('-Wno-multichar'),
+		language: 'c', native: true)
+	add_project_arguments(build_cpp.get_supported_arguments('-Wno-multichar'),
+		language: 'cpp', native: true)
+endif
+
 # Apply host platform defines globally to all compiled languages.
 if host_platform_defines.length() > 0
 	add_project_arguments(host_platform_defines, language: ['c', 'cpp'])
