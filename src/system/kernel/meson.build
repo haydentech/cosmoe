@@ -7,6 +7,7 @@ kernel_common_files = [
     'area.c',
     'real_time_clock.c',
 	'fs/fd.cpp',
+	'fs/query.cpp',  # Userspace query engine
 	'fs/vfs.cpp',  # Common platform-agnostic code
 ]
 

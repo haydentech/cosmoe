@@ -1172,10 +1172,14 @@ int	fs_stat_dev(dev_t dev, fs_info *info)
 			info->flags |= B_FS_IS_READONLY;
 
 		/* Attributes are stored as user.* xattrs; only claim support for
-		   file systems that actually accept them. B_FS_HAS_QUERY follows
-		   once the userspace query engine is available. */
+		   file systems that actually accept them. */
 		if (xattr_supported_on_mount(ent->mnt_dir))
 			info->flags |= B_FS_HAS_ATTR;
+
+		/* Queries are answered by scanning the volume, so every mount is
+		   searchable. Attribute predicates simply never match on volumes
+		   without B_FS_HAS_ATTR. */
+		info->flags |= B_FS_HAS_QUERY;
 		if (vfs.f_flag & ST_NOSUID)
 			; /* not mapped but kept for future */
 

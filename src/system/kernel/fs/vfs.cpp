@@ -14,6 +14,7 @@
 */
 
 #include "kernel_interface.h"
+#include "query.h"
 #include "storage_support.h"
 
 #include <OS.h>
@@ -638,18 +639,8 @@ int
 _kern_open_query(dev_t device, const char* query, size_t queryLength,
 	uint32 flags, port_id port, int32 token)
 {
-	(void)device;
-	(void)query;
-	(void)queryLength;
-	(void)flags;
-	(void)port;
-	(void)token;
-
-	// Queries are served by a userspace engine on Cosmoe; report the missing
-	// support until that engine is wired up. Must be a negative fd, since
-	// Cosmoe's B_NOT_SUPPORTED is a positive status code.
-	errno = ENOTSUP;
-	return -1;
+	return BPrivate::Storage::Query::open_query(device, query, queryLength,
+		flags, port, token);
 }
 
 //------------------------------------------------------------------------------

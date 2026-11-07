@@ -22,6 +22,8 @@
 
 #include <kernel_interface.h>
 
+#include "query.h"
+
 #if defined(_WIN32)
 #include <windows.h>
 #endif
@@ -203,6 +205,12 @@ _kern_read_dir(int dir, DIR** dirDir, struct dirent *buffer, size_t length, uint
 {
 	ssize_t result = 0;
 
+	// Query results are not backed by a DIR stream: they are served from the
+	// engine's result file, and the caller passes a NULL dirDir for them.
+	if (BPrivate::Storage::Query::is_query_fd(dir))
+		return BPrivate::Storage::Query::read_query_dir(dir, buffer, length,
+			maxcount);
+
 	if (buffer == NULL || dirDir == NULL)
 		return B_BAD_VALUE;
 
@@ -256,6 +264,7 @@ _kern_rewind_dir(DIR* dir)
 status_t
 _kern_close(int fd)
 {
+	BPrivate::Storage::Query::close_query(fd);
 	BPrivate::Storage::unregister_symlink_fd_path(fd);
 #if defined(_WIN32)
 	return (::_close(fd) == -1) ? errno : B_OK;

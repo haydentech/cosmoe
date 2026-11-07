@@ -366,11 +366,14 @@ BQuery::GetNextRef(entry_ref* ref)
 	if (error == B_OK && !_HasFetched())
 		error = B_FILE_ERROR;
 	if (error == B_OK) {
-		BPrivate::Storage::LongDirEntry longEntry;
-		struct dirent* entry = longEntry.dirent();
+		// The result's d_name holds a full path, not just a leaf name, so
+		// the buffer has to be able to hold one.
+		alignas(struct dirent) char entryBuffer[sizeof(struct dirent)
+			+ B_PATH_NAME_LENGTH + 1];
+		struct dirent* entry = (struct dirent*)entryBuffer;
 		bool next = true;
 		while (error == B_OK && next) {
-			if (GetNextDirents(entry, sizeof(longEntry), 1) != 1) {
+			if (GetNextDirents(entry, sizeof(entryBuffer), 1) != 1) {
 				error = B_ENTRY_NOT_FOUND;
 			} else {
 				next = (!strcmp(entry->d_name, ".")
