@@ -64,19 +64,16 @@
   - Doing this dynamically turns out to probably be harder than it's worth, as this is not used very often, and when it is, very small amounts of data are passed.
 
 - Tracker/libtracker/Deskbar bugs
-  - "Get Info" on a file can sometimes hang Tracker (haven't seen this in a while)
   - Dragging a file/folder to a new window (e.g. to copy/move it to a new location) does not work consistently and shows no drag/drop UI
   - Tracker menus are layered behind the Deskbar on Wayland, this is actually very difficult to fix due to Wayland layering
   - Error on startup: "FlatIconImporter::_ParseSections() - error parsing shapes: Unknown error -1"
     - This is due to a malformed Person vector icon in Haiku, not a bug in Cosmoe
-  - Resizing the columns on open/save panels produces graphical artifacts and/or shows through to the window below
   - Certain Deskbar placements that should put Deskbar in the corner of the screen position it away from the corner horizontally
   - Some custom cursors work, others show a corrupted cursor image
-  - File search instantly completes and shows no results (due to lack of fs indexes no doubt) -- we need a backup plan
   - When you empty the trash, the trash icon on the Desktop changes, but if you have the trash window open, the icon in the window does not
 
 
-## Historical Bugs -- not specifically fixed, but haven't been seen in a long time, so may be fixed by another change
+## Historical Bugs -- not specifically fixed, but haven't been seen in a long time, so may have been fixed by another change
 
 - If you use an app for long enough it will crash with a corrupt `BMessage` header
   - Crash typically happens in `UsePreferredTarget`.
@@ -90,6 +87,8 @@
 - If you open an Open File Panel a second time after having opened a file the first time, it locks up the window (and the app)
 	- Save panel doesn't do that though
 	- If you cancel, you can open as many Open panels as you want, it's only when you really open a file that it happens
+
+- "Get Info" on a file can sometimes hang Tracker
 
 
 ## Platform-Specific Bugs

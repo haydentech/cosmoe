@@ -1004,17 +1004,24 @@ _kstart_watching_path_(const char* path, ino_t node, uint32 flags, port_id port,
 		[port, handlerToken](const node_monitor_target& target) {
 			return target_matches(target, port, handlerToken);
 		});
-	if (targetIt != watch->targets.end())
-		targetIt->flags |= flags;
-	else
+	// Remember where the target lives instead of keeping the iterator:
+	// push_back() may reallocate the vector, and a stale end() iterator
+	// (a null pointer for an empty vector) then compares unequal to the
+	// new end(), so touching it would crash.
+	bool addedTarget = targetIt == watch->targets.end();
+	size_t targetIndex = addedTarget
+		? watch->targets.size() : (size_t)(targetIt - watch->targets.begin());
+	if (addedTarget)
 		watch->targets.push_back({ port, handlerToken, flags });
+	else
+		targetIt->flags |= flags;
 
 	error = attach_parent_watch(*watch);
 	if (error != B_OK) {
-		if (targetIt != watch->targets.end())
-			targetIt->flags &= ~flags;
-		else
+		if (addedTarget)
 			watch->targets.pop_back();
+		else if (targetIndex < watch->targets.size())
+			watch->targets[targetIndex].flags &= ~flags;
 		if (watch->targets.empty()) {
 			sNodeMonitorWatchesByPath.erase(watch->path);
 			delete watch;

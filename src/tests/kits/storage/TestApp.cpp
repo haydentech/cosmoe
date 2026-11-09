@@ -83,6 +83,10 @@ BTestApp::Terminate()
 	PostMessage(B_QUIT_REQUESTED, this);
 	int32 result;
 	wait_for_thread(fAppThread, &result);
+
+	// The application thread returns from Run() with the looper still locked.
+	// Release it, so the object can be destroyed afterwards.
+	Unlock();
 }
 
 // ReadyToRun

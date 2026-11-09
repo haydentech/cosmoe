@@ -22,14 +22,21 @@
 #include <config.h>
 
 #include <errno.h>
+#include <NodeMonitor.h>
+#include <fs_query.h>
 #include <stddef.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
 #include <dirent.h>
+#include <fcntl.h>
+#include <pthread.h>
 #include <unistd.h>
 
+#include <atomic>
+#include <map>
+#include <memory>
 #include <mutex>
 #include <set>
 #include <string>
@@ -38,6 +45,8 @@
 
 #if defined(__linux__)
 #	include <mntent.h>
+#	include <poll.h>
+#	include <sys/inotify.h>
 #	include <sys/stat.h>
 #	if defined(HAVE_SYS_XATTR_H)
 #		include <sys/xattr.h>
@@ -58,6 +67,17 @@ namespace {
 const int kMaxDepth = 256;
 // Attributes bigger than this are never meaningful to a query.
 const off_t kMaxAttributeSize = 64 * 1024;
+
+// What a live query needs to hear about.
+const uint32 kWatchMask = IN_CREATE | IN_DELETE | IN_MOVED_FROM | IN_MOVED_TO
+	| IN_ATTRIB | IN_DELETE_SELF | IN_MOVE_SELF | IN_ONLYDIR;
+
+// inotify watches are a per-user, system-wide resource (fs.inotify
+// .max_user_watches, typically 65536). A query over a large volume could
+// consume every one of them and leave node monitoring -- and with it the
+// rest of the desktop -- without watches, so each live query stops adding
+// them once it has used its share and degrades to the snapshot it scanned.
+const size_t kMaxLiveQueryWatches = 8192;
 
 
 //	#pragma mark - Predicate tree
@@ -798,6 +818,302 @@ WriteRecord(int fd, ino_t directory, const std::string& path, mode_t mode)
 }
 
 
+//	#pragma mark - Query descriptors
+
+
+std::mutex&
+QueryLock()
+{
+	static std::mutex lock;
+	return lock;
+}
+
+
+std::set<int>&
+QueryFDs()
+{
+	static std::set<int> fds;
+	return fds;
+}
+
+
+//	#pragma mark - Live queries
+
+
+struct LiveQuery {
+	LiveQuery()
+		:
+		fd(-1),
+		inotifyFD(-1),
+		port(-1),
+		token(0),
+		predicate(NULL),
+		device(0),
+		stopped(false),
+		watchLimitReached(false)
+	{
+	}
+
+	~LiveQuery()
+	{
+		delete predicate;
+	}
+
+	int								fd;
+	int								inotifyFD;
+	port_id							port;
+	int32							token;
+	Node*							predicate;
+	dev_t							device;
+	std::map<int, std::string>		watchPaths;
+	std::map<int, ino_t>			watchInodes;
+	std::map<std::string, ino_t>	entries;
+	std::atomic<bool>				stopped;
+	std::atomic<bool>				watchLimitReached;
+};
+
+
+std::map<int, std::shared_ptr<LiveQuery> >&
+LiveQueries()
+{
+	static std::map<int, std::shared_ptr<LiveQuery> > queries;
+	return queries;
+}
+
+
+QueryUpdateSender&
+UpdateSender()
+{
+	static QueryUpdateSender sender = NULL;
+	return sender;
+}
+
+
+void
+SendUpdate(const std::shared_ptr<LiveQuery>& live, uint32 opcode,
+	ino_t directory, ino_t node, const char* name)
+{
+	QueryUpdateSender sender = UpdateSender();
+	if (sender == NULL || live->port < 0)
+		return;
+
+	sender(live->port, live->token, opcode, live->device, directory, node,
+		name);
+}
+
+
+void
+AddWatch(LiveQuery* live, const std::string& path, ino_t inode)
+{
+	if (live == NULL || live->inotifyFD < 0 || live->watchLimitReached)
+		return;
+
+	if (live->watchPaths.size() >= kMaxLiveQueryWatches) {
+		live->watchLimitReached = true;
+		return;
+	}
+
+	int descriptor = inotify_add_watch(live->inotifyFD, path.c_str(),
+		kWatchMask);
+	if (descriptor < 0) {
+		// Out of watches (or descriptors) for the whole user; stop asking
+		// rather than repeating a failing syscall for every directory.
+		if (errno == ENOSPC || errno == EMFILE)
+			live->watchLimitReached = true;
+		return;
+	}
+
+	if (live->watchPaths.find(descriptor) != live->watchPaths.end())
+		return;
+
+	live->watchPaths[descriptor] = path;
+	live->watchInodes[descriptor] = inode;
+}
+
+
+void
+NotifyIfMatching(const std::shared_ptr<LiveQuery>& live, const std::string& path,
+	const char* name, ino_t directory)
+{
+	struct stat stat;
+	if (lstat(path.c_str(), &stat) != 0)
+		return;
+
+	EntryInfo info;
+	info.path = path.c_str();
+	info.name = name;
+	info.stat = stat;
+
+	bool matches = EvaluateNode(*live->predicate, info);
+	std::map<std::string, ino_t>::iterator found = live->entries.find(path);
+
+	if (matches) {
+		bool known = found != live->entries.end();
+		live->entries[path] = stat.st_ino;
+		SendUpdate(live, known ? B_ATTR_CHANGED : B_ENTRY_CREATED, directory,
+			stat.st_ino, path.c_str());
+	} else if (found != live->entries.end()) {
+		SendUpdate(live, B_ENTRY_REMOVED, directory, found->second,
+			path.c_str());
+		live->entries.erase(found);
+	}
+}
+
+
+/*! Registers watches for a directory that appeared after the initial scan, so
+	entries created inside it are still reported.
+*/
+void
+WatchTree(const std::shared_ptr<LiveQuery>& live, const std::string& path,
+	ino_t directory, int depth)
+{
+	if (depth > kMaxDepth)
+		return;
+
+	struct stat stat;
+	if (lstat(path.c_str(), &stat) != 0 || stat.st_dev != live->device
+			|| !S_ISDIR(stat.st_mode)) {
+		return;
+	}
+
+	AddWatch(live.get(), path, stat.st_ino);
+
+	const char* leaf = strrchr(path.c_str(), '/');
+	NotifyIfMatching(live, path, leaf != NULL ? leaf + 1 : path.c_str(),
+		directory);
+
+	DIR* dir = opendir(path.c_str());
+	if (dir == NULL)
+		return;
+
+	while (struct dirent* entry = readdir(dir)) {
+		if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0)
+			continue;
+
+		std::string child(path);
+		if (child.empty() || child[child.size() - 1] != '/')
+			child += '/';
+		child += entry->d_name;
+
+		WatchTree(live, child, stat.st_ino, depth + 1);
+	}
+
+	closedir(dir);
+}
+
+
+void
+HandleEvent(const std::shared_ptr<LiveQuery>& live,
+	const struct inotify_event* event)
+{
+	std::map<int, std::string>::iterator watch
+		= live->watchPaths.find(event->wd);
+	if (watch == live->watchPaths.end())
+		return;
+
+	std::string directory = watch->second;
+	ino_t directoryInode = live->watchInodes[event->wd];
+
+	if ((event->mask & IN_IGNORED) != 0 || event->len == 0
+			|| event->name[0] == '\0') {
+		// The watched directory itself went away.
+		live->watchInodes.erase(event->wd);
+		live->watchPaths.erase(watch);
+		return;
+	}
+
+	std::string path(directory);
+	if (path.empty() || path[path.size() - 1] != '/')
+		path += '/';
+	path += event->name;
+
+	if ((event->mask & (IN_CREATE | IN_MOVED_TO)) != 0) {
+		struct stat stat;
+		if (lstat(path.c_str(), &stat) == 0 && S_ISDIR(stat.st_mode))
+			WatchTree(live, path, directoryInode, 0);
+		else
+			NotifyIfMatching(live, path, event->name, directoryInode);
+	} else if ((event->mask & (IN_DELETE | IN_MOVED_FROM)) != 0) {
+		std::map<std::string, ino_t>::iterator found = live->entries.find(path);
+		if (found != live->entries.end()) {
+			SendUpdate(live, B_ENTRY_REMOVED, directoryInode, found->second,
+				path.c_str());
+			live->entries.erase(found);
+		}
+	} else if ((event->mask & IN_ATTRIB) != 0) {
+		NotifyIfMatching(live, path, event->name, directoryInode);
+	}
+}
+
+
+void*
+WatchThread(void* data)
+{
+	std::shared_ptr<LiveQuery>* holder
+		= reinterpret_cast<std::shared_ptr<LiveQuery>*>(data);
+	std::shared_ptr<LiveQuery> live = *holder;
+	delete holder;
+
+	char buffer[4096]
+		__attribute__((aligned(__alignof__(struct inotify_event))));
+
+	while (!live->stopped) {
+		struct pollfd descriptor;
+		descriptor.fd = live->inotifyFD;
+		descriptor.events = POLLIN;
+		descriptor.revents = 0;
+
+		if (poll(&descriptor, 1, 250) <= 0)
+			continue;
+
+		ssize_t length = read(live->inotifyFD, buffer, sizeof(buffer));
+		if (length <= 0)
+			break;
+
+		for (char* pointer = buffer; pointer < buffer + length;) {
+			const struct inotify_event* event
+				= reinterpret_cast<const struct inotify_event*>(pointer);
+			HandleEvent(live, event);
+			pointer += sizeof(struct inotify_event) + event->len;
+		}
+	}
+
+	std::lock_guard<std::mutex> guard(QueryLock());
+	std::map<int, std::shared_ptr<LiveQuery> >::iterator found
+		= LiveQueries().find(live->fd);
+	if (found != LiveQueries().end() && found->second.get() == live.get())
+		LiveQueries().erase(found);
+
+	return NULL;
+}
+
+
+bool
+StartLiveQuery(const std::shared_ptr<LiveQuery>& live)
+{
+	pthread_t thread;
+	std::shared_ptr<LiveQuery>* holder
+		= new(std::nothrow) std::shared_ptr<LiveQuery>(live);
+	if (holder == NULL)
+		return false;
+
+	if (pthread_create(&thread, NULL, WatchThread, holder) != 0) {
+		delete holder;
+		return false;
+	}
+
+	pthread_detach(thread);
+	return true;
+}
+
+
+void
+RegisterQueryFD(int fd)
+{
+	std::lock_guard<std::mutex> guard(QueryLock());
+	QueryFDs().insert(fd);
+}
+
 //	#pragma mark - Volume traversal
 
 
@@ -835,7 +1151,7 @@ MountPointForDevice(dev_t device, std::string& mountPoint)
 */
 bool
 ScanDirectory(const std::string& directory, dev_t device, const Node& predicate,
-	int resultFD, int depth)
+	int resultFD, int depth, LiveQuery* live)
 {
 	DIR* dir = opendir(directory.c_str());
 	if (dir == NULL)
@@ -845,6 +1161,9 @@ ScanDirectory(const std::string& directory, dev_t device, const Node& predicate,
 	struct stat directoryStat;
 	if (lstat(directory.c_str(), &directoryStat) == 0)
 		directoryInode = directoryStat.st_ino;
+
+	if (live != NULL)
+		AddWatch(live, directory, directoryInode);
 
 	bool success = true;
 	while (success) {
@@ -872,14 +1191,18 @@ ScanDirectory(const std::string& directory, dev_t device, const Node& predicate,
 		info.stat = stat;
 
 		if (EvaluateNode(predicate, info)) {
+			if (live != NULL)
+				live->entries[path] = stat.st_ino;
 			if (!WriteRecord(resultFD, directoryInode, path, stat.st_mode)) {
 				success = false;
 				break;
 			}
 		}
 
-		if (S_ISDIR(stat.st_mode) && depth < kMaxDepth)
-			success = ScanDirectory(path, device, predicate, resultFD, depth + 1);
+		if (S_ISDIR(stat.st_mode) && depth < kMaxDepth) {
+			success = ScanDirectory(path, device, predicate, resultFD,
+				depth + 1, live);
+		}
 	}
 
 	closedir(dir);
@@ -887,33 +1210,14 @@ ScanDirectory(const std::string& directory, dev_t device, const Node& predicate,
 }
 
 
-//	#pragma mark - Query descriptors
-
-
-std::mutex&
-QueryLock()
-{
-	static std::mutex lock;
-	return lock;
-}
-
-
-std::set<int>&
-QueryFDs()
-{
-	static std::set<int> fds;
-	return fds;
-}
+}	// unnamed namespace
 
 
 void
-RegisterQueryFD(int fd)
+set_query_update_sender(QueryUpdateSender sender)
 {
-	std::lock_guard<std::mutex> guard(QueryLock());
-	QueryFDs().insert(fd);
+	UpdateSender() = sender;
 }
-
-}	// unnamed namespace
 
 
 int
@@ -957,16 +1261,50 @@ open_query(dev_t device, const char* predicate, size_t length, uint32 flags,
 	// The results are private to this process; the file disappears with it.
 	unlink(templatePath);
 
-	bool success = ScanDirectory(mountPoint, device, *root, fd, 0);
-	delete root;
+	std::shared_ptr<LiveQuery> live;
+	bool watch = (flags & B_LIVE_QUERY) != 0 && port >= 0;
+	if (watch) {
+		live.reset(new(std::nothrow) LiveQuery);
+		if (live != NULL) {
+			live->fd = fd;
+			live->port = port;
+			live->token = token;
+			live->device = device;
+			live->inotifyFD = inotify_init1(IN_NONBLOCK | IN_CLOEXEC);
+			if (live->inotifyFD < 0)
+				live.reset();
+		}
+	}
+
+	bool success = ScanDirectory(mountPoint, device, *root, fd, 0, live.get());
+	if (live != NULL) {
+		live->predicate = root;
+		if (!StartLiveQuery(live)) {
+			close(live->inotifyFD);
+			live->predicate = NULL;
+			live.reset();
+			delete root;
+		}
+	} else
+		delete root;
 
 	if (!success || lseek(fd, 0, SEEK_SET) == (off_t)-1) {
+		if (live != NULL) {
+			live->stopped = true;
+			close(live->inotifyFD);
+		}
 		close(fd);
 		errno = EIO;
 		return -1;
 	}
 
-	RegisterQueryFD(fd);
+	{
+		std::lock_guard<std::mutex> guard(QueryLock());
+		QueryFDs().insert(fd);
+		if (live != NULL)
+			LiveQueries()[fd] = live;
+	}
+
 	return fd;
 }
 
@@ -1027,8 +1365,27 @@ read_query_dir(int fd, struct dirent* buffer, size_t length, uint32 maxCount)
 status_t
 close_query(int fd)
 {
-	std::lock_guard<std::mutex> guard(QueryLock());
-	QueryFDs().erase(fd);
+	std::shared_ptr<LiveQuery> live;
+
+	{
+		std::lock_guard<std::mutex> guard(QueryLock());
+		QueryFDs().erase(fd);
+
+		std::map<int, std::shared_ptr<LiveQuery> >::iterator found
+			= LiveQueries().find(fd);
+		if (found != LiveQueries().end()) {
+			live = found->second;
+			LiveQueries().erase(found);
+		}
+	}
+
+	if (live != NULL) {
+		live->stopped = true;
+		// Wakes the watcher thread's poll(); it exits on its own.
+		close(live->inotifyFD);
+		live->inotifyFD = -1;
+	}
+
 	return B_OK;
 }
 
@@ -1079,6 +1436,13 @@ close_query(int fd)
 {
 	(void)fd;
 	return B_OK;
+}
+
+
+void
+set_query_update_sender(QueryUpdateSender sender)
+{
+	(void)sender;
 }
 
 #endif	// __linux__

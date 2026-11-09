@@ -24,6 +24,8 @@
 #include <Volume.h>
 
 #include <MessengerPrivate.h>
+#include <NodeMonitor.h>
+#include <query_engine.h>
 #include <syscalls.h>
 
 #include "QueryPredicate.h"
@@ -32,6 +34,34 @@
 
 using namespace std;
 using namespace BPrivate::Storage;
+
+
+namespace {
+
+// The query engine lives in libroot and cannot build BMessages, so it calls
+// back here to deliver live query updates.
+status_t
+send_query_update(port_id port, int32 token, uint32 opcode, dev_t device,
+	ino_t directory, ino_t node, const char* name)
+{
+	BMessage message(B_QUERY_UPDATE);
+	message.AddInt32("opcode", (int32)opcode);
+	message.AddDevice("device", device);
+	message.AddInode("directory", directory);
+	message.AddInode("node", node);
+	if (name != NULL)
+		message.AddString("name", name);
+
+	port_info info;
+	if (get_port_info(port, &info) != B_OK)
+		return B_BAD_PORT_ID;
+
+	BMessenger messenger;
+	BMessenger::Private(messenger).SetTo(info.team, port, token);
+	return messenger.SendMessage(&message);
+}
+
+}	// unnamed namespace
 
 
 // Creates an uninitialized BQuery.
@@ -319,11 +349,13 @@ BQuery::Fetch()
 
 	_EvaluateStack();
 
-	if (!fPredicate || fDevice < 0)
+	if (!fPredicate || fDevice == (dev_t)B_ERROR)
 		return B_NO_INIT;
 
 	BString parsedPredicate;
 	_ParseDates(parsedPredicate);
+
+	Query::set_query_update_sender(send_query_update);
 
 	fQueryFd = _kern_open_query(fDevice,
 		parsedPredicate.String(), parsedPredicate.Length(),

@@ -185,13 +185,21 @@ resolve_open_path(int fd, const char* path, char* resolved, size_t resolvedSize)
 DIR* opendirfd(int fd)
 {
 	DIR* dir = opendir("/");
+	if (dir == NULL)
+		return NULL;
 
 	// Inject our fd into the private structure, now that the DIR*
 	// is all set up for us.  If an OS does not have an int representing
 	// the file descriptor as the first argument, things could get ugly.
 	// Any BSD (including OS X) or Linux should be OK.
-	if (dir)
-		((DIR_STRUCT*)dir)->fd = fd;
+	// The stream was only opened on "/" to get a DIR with a valid buffer,
+	// so release the placeholder descriptor before handing it ours --
+	// otherwise every directory stream leaks a descriptor on the root
+	// directory (one per directory listing and per BDirectory closed).
+	int placeholder = ((DIR_STRUCT*)dir)->fd;
+	((DIR_STRUCT*)dir)->fd = fd;
+	if (placeholder >= 0 && placeholder != fd)
+		::close(placeholder);
 
 	return dir;
 }

@@ -405,7 +405,7 @@ public:
 };
 
 static const char *testVolumeImage	= "/tmp/query-test-image";
-static const char *testMountPoint	= "/non-existing-mount-point";
+static const char *testMountPoint	= "/tmp/cosmoe-query-test-mount";
 
 // the test entry hierarchy:
 // mountPoint
@@ -562,7 +562,9 @@ QueryTest::tearDown()
 	BasicTest::tearDown();
 	if (fApplication) {
 		fApplication->Terminate();
-		delete fApplication;
+		// The application thread finishes Run() with the looper still locked,
+		// and destroying a BApplication in that state deadlocks in this port,
+		// so the object is left alive; the test process is short-lived.
 		fApplication = NULL;
 	}
 	if (fVolumeCreated) {
@@ -1059,7 +1061,9 @@ TestFetchPredicate(const char *mountPoint, const char *predicate,
 			CPPUNIT_ASSERT( query.Rewind() == B_ERROR );
 #endif
 			CPPUNIT_ASSERT( query.CountEntries() == B_ERROR );
-			entry_ref ref(ents->d_pdev, ents->d_pino, ents->d_name);
+			// Cosmoe's dirent has no d_pdev/d_pino: d_name carries the
+			// full path and entry_ref is resolved from it.
+			entry_ref ref(0, 0, ents->d_name);
 			BPath path(&ref);
 			CPPUNIT_ASSERT( path.InitCheck() == B_OK );
 			CPPUNIT_ASSERT( testSet.test(path.Path()) == true );
@@ -1084,7 +1088,7 @@ TestFetchPredicate(const char *mountPoint, const char *predicate,
 			CPPUNIT_ASSERT( query.Rewind() == B_ERROR );
 #endif
 			CPPUNIT_ASSERT( query.CountEntries() == B_ERROR );
-			entry_ref entref(ents->d_pdev, ents->d_pino, ents->d_name);
+			entry_ref entref(0, 0, ents->d_name);
 			BPath entpath(&entref);
 			CPPUNIT_ASSERT( entpath.InitCheck() == B_OK );
 			CPPUNIT_ASSERT( testSet.test(entpath.Path()) == true );

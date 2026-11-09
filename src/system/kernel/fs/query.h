@@ -9,6 +9,8 @@
 #include <OS.h>
 #include <SupportDefs.h>
 
+#include <query_engine.h>
+
 
 struct dirent;
 

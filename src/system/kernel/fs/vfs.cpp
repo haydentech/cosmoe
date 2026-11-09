@@ -639,8 +639,27 @@ int
 _kern_open_query(dev_t device, const char* query, size_t queryLength,
 	uint32 flags, port_id port, int32 token)
 {
-	return BPrivate::Storage::Query::open_query(device, query, queryLength,
-		flags, port, token);
+	int result = BPrivate::Storage::Query::open_query(device, query,
+		queryLength, flags, port, token);
+	if (result >= 0)
+		return result;
+
+	// The query engine reports POSIX errno values, while callers of this
+	// entry point expect status codes.
+	switch (errno) {
+		case EINVAL:
+			return B_BAD_VALUE;
+		case ENOENT:
+			return B_ENTRY_NOT_FOUND;
+		case ENOMEM:
+			return B_NO_MEMORY;
+#ifdef ENOTSUP
+		case ENOTSUP:
+			return B_NOT_SUPPORTED;
+#endif
+		default:
+			return B_ERROR;
+	}
 }
 
 //------------------------------------------------------------------------------

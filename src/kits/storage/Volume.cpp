@@ -147,7 +147,9 @@ BVolume::SetTo(dev_t device)
 	// uninitialize
 	Unset();
 	// check the parameter: only non-negative device IDs are valid
-	status_t error = (device >= 0 ? B_OK : B_BAD_VALUE);
+	// (dev_t is unsigned on Linux, so a negative BeOS ID arrives as a
+	// huge value; treat anything wider than int32 as invalid)
+	status_t error = (device <= (dev_t)INT32_MAX ? B_OK : B_BAD_VALUE);
 
 	if (error == B_OK) {
 		fs_info info;
