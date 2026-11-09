@@ -4684,7 +4684,7 @@ BTextView::_DrawLines(int32 startLine, int32 endLine, int32 startOffset,
 	}
 
 	// draw the caret/hilite the selection
-	if (fActive) {
+	if (fActive && !IsPrinting()) {
 		if (fSelStart != fSelEnd) {
 			if (fSelectable)
 				Highlight(fSelStart, fSelEnd);
