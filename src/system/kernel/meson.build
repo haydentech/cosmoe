@@ -21,7 +21,7 @@ kernel_common_files = [
 # tool library in src/kits).  A cross build to Windows must still get the POSIX
 # semaphore implementation for its rc.
 kernel_platform_files = {
-    'darwin': ['misc_minimal.c', 'sem-macos.c', 'fs/vfs.POSIX.cpp'],
+    'darwin': ['misc.c', 'sem-macos.c', 'fs/vfs.POSIX.cpp'],
     'windows': ['misc.c', 'sem.cpp', 'semaphore.c', 'fs/vfs.WIN.cpp'],
     'posix': ['misc.c', 'sem.cpp', 'fs/vfs.POSIX.cpp'],
 }
