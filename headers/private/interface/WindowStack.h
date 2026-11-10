@@ -6,6 +6,7 @@
 #define WINDOW_STACK_H
 
 
+#include <Messenger.h>
 #include <Window.h>
 
 
@@ -34,9 +35,7 @@ public:
 			bool				HasWindow(const BMessenger& window);
 
 private:
-			status_t			_AttachMessenger(const BMessenger& window);
-			status_t			_ReadMessenger(BMessenger& window);
-			status_t			_StartMessage(int32 what);
+			BMessenger			fWindow;
 };
 
 

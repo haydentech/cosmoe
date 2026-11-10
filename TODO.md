@@ -17,7 +17,6 @@
 
 - Several APIs are empty stubs or absent altogether
   - `get_mouse()`
-  - `BWindowStack` is all stubs
   - `BFont::GetGlyphShapes`, `BFont::LoadFont`, `BFont::UnloadFont` are stubs
   - Media Kit audio writing functions and all video functions
   - Game Kit advanced sound playback and streaming functionality
@@ -144,6 +143,8 @@ Cosmoe is designed to be as compatible as possible with Haiku/Be code, but there
 
 - Haiku allows drawing outside of the Draw() loop (e.g. in a Pulse() call) without an Invalidate() being necessary
   - Cosmoe requires an explicit Invalidate() for those pixels to reach the screen
+
+- `BWindowStack` only tracks windows within one process; backend attachment and cross-process stacking are not implemented
 
 - Apps that need runtime lookup of their own Class::Instantiate(BMessage*) symbols need the following linker flags in their Makefile. Apps using only the built-in archivable classes do not need it.
 	ifeq ($(shell uname -s),Linux)

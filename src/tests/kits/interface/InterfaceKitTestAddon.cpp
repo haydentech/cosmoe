@@ -14,6 +14,8 @@
 #include "GraphicsDefsTest.h"
 #include "OutlineListViewTest.h"
 
+CppUnit::Test* WindowStackTestSuite();
+
 
 BTestSuite *
 getTestSuite()
@@ -25,6 +27,7 @@ getTestSuite()
 	suite->addTest("BBitmap", BitmapTestSuite());
 //	suite->addTest("BDeskbar", DeskbarTestSuite());
 	suite->addTest("BOutlineListView", OutlineListViewTestSuite());
+	suite->addTest("BWindowStack", WindowStackTestSuite());
 	// suite->addTest("BMenu", MenuTestSuite());
 	suite->addTest("BPolygon", PolygonTestSuite());
 	suite->addTest("BRegion", RegionTestSuite());

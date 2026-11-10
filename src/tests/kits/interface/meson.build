@@ -10,6 +10,7 @@ srcs_interface_test = files(
   'InterfaceKitTestAddon.cpp',
   'GraphicsDefsTest.cpp',
   'OutlineListViewTest.cpp',
+  'bwindowstack/WindowStackUnitTest.cpp',
   # bpolygon tests
   'bpolygon/PolygonTest.cpp',
   'bpolygon/CreatePolygonTest.cpp',
