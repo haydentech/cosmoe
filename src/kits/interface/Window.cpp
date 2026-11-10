@@ -5697,6 +5697,21 @@ BWindow::_HandleKeyDown(BMessage* event)
 
 		Shortcut* shortcut = _FindShortcut(key, modifiers
 			| (((modifiers & B_COMMAND_KEY) == 0) ? B_NO_COMMAND_KEY : 0));
+
+		if (shortcut == NULL && (modifiers & B_SHIFT_KEY) != 0
+			&& (modifiers & (B_COMMAND_KEY | B_CONTROL_KEY)) != 0
+			&& key > B_SPACE && key < 0x7f
+			&& !((key >= 'a' && key <= 'z')
+				|| (key >= 'A' && key <= 'Z'))) {
+			// Shift was only used to type the shortcut character itself,
+			// as in Command+"+" which is usually Command+Shift+"=".
+			// A non-letter shortcut does not use Shift as a modifier of
+			// its own, so try again without it.
+			modifiers &= ~B_SHIFT_KEY;
+			shortcut = _FindShortcut(key, modifiers
+				| (((modifiers & B_COMMAND_KEY) == 0) ? B_NO_COMMAND_KEY : 0));
+		}
+
 		if (shortcut != NULL) {
 			// TODO: would be nice to move this functionality to
 			//	a Shortcut::Invoke() method - but since BMenu::InvokeItem()
