@@ -18,7 +18,6 @@
 - Several APIs are empty stubs or absent altogether
   - `get_mouse()`
   - `BWindowStack` is all stubs
-  - `BPrintJob` and other printing routines have no print server to talk to
   - `BFont::GetGlyphShapes`, `BFont::LoadFont`, `BFont::UnloadFont` are stubs
   - Media Kit audio writing functions and all video functions
   - Game Kit advanced sound playback and streaming functionality
