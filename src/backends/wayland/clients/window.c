@@ -722,6 +722,7 @@ struct window {
 	void *focus_user_data;
 	window_data_handler_t data_handler;
 	window_drop_handler_t drop_handler;
+	window_drag_end_handler_t drag_end_handler;
 	window_close_handler_t close_handler;
 	window_screen_handler_t screen_handler;
 	window_fullscreen_handler_t fullscreen_handler;
@@ -880,6 +881,8 @@ struct input {
 	int hotspot_x, hotspot_y;
 	uint32_t modifiers;
 	uint32_t pointer_enter_serial;
+	uint32_t drag_serial;
+	struct window *drag_origin;
 	uint32_t cursor_serial;
 	uint32_t pending_axis_source;
 	uint32_t pending_axis_time;
@@ -933,6 +936,95 @@ struct input {
 	struct zwp_tablet_seat_v2 *tablet_seat;
 	struct wl_list tablet_list;
 	struct wl_list tablet_tool_list;
+};
+
+static struct wl_data_source *drag_source;
+static struct wl_surface *drag_icon_surface;
+static struct wl_buffer *drag_icon_buffer;
+static struct shm_pool *drag_icon_pool;
+static struct window *drag_source_window;
+
+static void drag_icon_destroy(void);
+
+static void
+drag_source_target(void *data, struct wl_data_source *source,
+	const char *mime_type)
+{
+	(void)data;
+	(void)source;
+	(void)mime_type;
+}
+
+static void
+drag_source_send(void *data, struct wl_data_source *source,
+	const char *mime_type, int32_t fd)
+{
+	/* Same-process drops use the BMessage retained by the interface kit.
+	 * Still complete the Wayland transfer so the compositor recognizes this
+	 * as a valid drag source. */
+	(void)data;
+	(void)source;
+	(void)mime_type;
+	close(fd);
+}
+
+static void
+drag_source_finish(void)
+{
+	struct window *window = drag_source_window;
+
+	drag_icon_destroy();
+	drag_source_window = NULL;
+
+	/* The compositor consumes the pointer events for the drag, so the
+	 * originating window never sees the button release that ended it. */
+	if (window != NULL && window->drag_end_handler != NULL)
+		window->drag_end_handler(window, window->user_data);
+}
+
+static void
+drag_source_cancelled(void *data, struct wl_data_source *source)
+{
+	(void)data;
+	if (drag_source == source)
+		drag_source = NULL;
+	drag_source_finish();
+	wl_data_source_destroy(source);
+}
+
+static void
+drag_source_drop_performed(void *data, struct wl_data_source *source)
+{
+	(void)data;
+	(void)source;
+}
+
+static void
+drag_source_finished(void *data, struct wl_data_source *source)
+{
+	(void)data;
+	if (drag_source == source)
+		drag_source = NULL;
+	drag_source_finish();
+	wl_data_source_destroy(source);
+}
+
+static void
+drag_source_action(void *data, struct wl_data_source *source,
+	uint32_t dnd_action)
+{
+	(void)data;
+	(void)source;
+	(void)dnd_action;
+}
+
+static const struct wl_data_source_listener drag_source_listener = {
+	.target = drag_source_target,
+	.send = drag_source_send,
+	.cancelled = drag_source_cancelled,
+	.dnd_drop_performed = drag_source_drop_performed,
+	.dnd_finished = drag_source_finished,
+	.action = drag_source_action
 };
 
 struct output {
@@ -4062,6 +4154,148 @@ input_ungrab(struct input *input)
 }
 
 static void
+drag_icon_destroy(void)
+{
+	if (drag_icon_surface != NULL) {
+		wl_surface_destroy(drag_icon_surface);
+		drag_icon_surface = NULL;
+	}
+	if (drag_icon_buffer != NULL) {
+		wl_buffer_destroy(drag_icon_buffer);
+		drag_icon_buffer = NULL;
+	}
+	if (drag_icon_pool != NULL) {
+		shm_pool_destroy(drag_icon_pool);
+		drag_icon_pool = NULL;
+	}
+}
+
+/* Uploads premultiplied ARGB32 pixels into a surface the compositor can use as
+ * the drag icon. The icon must be attached and committed before start_drag. */
+static bool
+drag_icon_create(struct display *display, const void *pixels,
+	int32_t width, int32_t height)
+{
+	struct shm_pool *pool;
+	struct wl_buffer *buffer;
+	void *data;
+	int offset;
+	int32_t stride = width * 4;
+	size_t size = (size_t)stride * height;
+
+	drag_icon_destroy();
+
+	if (display == NULL || display->compositor == NULL
+		|| display->shm == NULL || pixels == NULL
+		|| width <= 0 || height <= 0) {
+		return false;
+	}
+
+	pool = shm_pool_create(display, size);
+	if (pool == NULL)
+		return false;
+
+	data = shm_pool_allocate(pool, size, &offset);
+	if (data == NULL) {
+		shm_pool_destroy(pool);
+		return false;
+	}
+	memcpy(data, pixels, size);
+
+	buffer = wl_shm_pool_create_buffer(pool->pool, offset, width, height,
+		stride, WL_SHM_FORMAT_ARGB8888);
+	if (buffer == NULL) {
+		shm_pool_destroy(pool);
+		return false;
+	}
+
+	drag_icon_surface = wl_compositor_create_surface(display->compositor);
+	if (drag_icon_surface == NULL) {
+		wl_buffer_destroy(buffer);
+		shm_pool_destroy(pool);
+		return false;
+	}
+
+	drag_icon_buffer = buffer;
+	drag_icon_pool = pool;
+
+	wl_surface_attach(drag_icon_surface, buffer, 0, 0);
+	wl_surface_damage(drag_icon_surface, 0, 0, width, height);
+	wl_surface_commit(drag_icon_surface);
+
+	return true;
+}
+
+void
+window_start_drag(struct window *window, const void *pixels,
+	int32_t width, int32_t height, int32_t hotspot_x, int32_t hotspot_y)
+{
+	struct input *input;
+
+	if (window == NULL || window->display == NULL
+		|| window->main_surface == NULL
+		|| window->main_surface->surface == NULL) {
+		return;
+	}
+
+	if (hotspot_x < 0)
+		hotspot_x = 0;
+	if (hotspot_y < 0)
+		hotspot_y = 0;
+
+	wl_list_for_each(input, &window->display->input_list, link) {
+		if (input->drag_origin != window || input->drag_serial == 0
+			|| input->data_device == NULL) {
+			continue;
+		}
+
+		if (drag_source != NULL) {
+			wl_data_source_destroy(drag_source);
+			drag_source = NULL;
+		}
+		drag_source_window = NULL;
+		drag_icon_destroy();
+
+		drag_source = wl_data_device_manager_create_data_source(
+			window->display->data_device_manager);
+		if (drag_source == NULL)
+			return;
+
+		if (drag_icon_create(window->display, pixels, width, height)) {
+			/* The icon's top-left initially sits at the pointer; shift the
+			 * contents so the grabbed part of the image is under it. */
+#ifdef WL_SURFACE_OFFSET_SINCE_VERSION
+			if (wl_proxy_get_version((struct wl_proxy *)drag_icon_surface)
+				>= WL_SURFACE_OFFSET_SINCE_VERSION) {
+				wl_surface_offset(drag_icon_surface,
+					-hotspot_x, -hotspot_y);
+				wl_surface_commit(drag_icon_surface);
+			}
+#endif
+		}
+
+		wl_data_source_add_listener(drag_source, &drag_source_listener, NULL);
+		wl_data_source_offer(drag_source, "application/x-cosmoe-bmessage");
+		if (wl_data_source_get_version(drag_source)
+			>= WL_DATA_SOURCE_SET_ACTIONS_SINCE_VERSION) {
+			wl_data_source_set_actions(drag_source,
+				WL_DATA_DEVICE_MANAGER_DND_ACTION_COPY
+				| WL_DATA_DEVICE_MANAGER_DND_ACTION_MOVE);
+		}
+		wl_data_device_start_drag(input->data_device, drag_source,
+			window->main_surface->surface, drag_icon_surface,
+			input->drag_serial);
+		drag_source_window = window;
+
+		/* The native data-device drag replaces our local implicit grab. */
+		if (input->grab != NULL)
+			input_ungrab(input);
+		input->drag_serial = 0;
+		return;
+	}
+}
+
+static void
 cursor_delay_timer_reset(struct input *input, uint32_t duration)
 {
 	if (!duration)
@@ -4301,6 +4535,10 @@ pointer_handle_button(void *data, struct wl_pointer *pointer, uint32_t serial,
 	if (input->focus_widget && input->grab == NULL &&
 	    state == WL_POINTER_BUTTON_STATE_PRESSED)
 		input_grab(input, input->focus_widget, button);
+	if (state == WL_POINTER_BUTTON_STATE_PRESSED) {
+		input->drag_serial = serial;
+		input->drag_origin = input->pointer_focus;
+	}
 
 	widget = input->grab;
 	if (widget && widget->button_handler)
@@ -4699,6 +4937,13 @@ keyboard_handle_key(void *data, struct wl_keyboard *keyboard,
 		/* Normalize carriage return to line feed for B_ENTER */
 		if (unicode == 13)
 			unicode = 10;
+
+		if ((input->modifiers & MOD_CONTROL_MASK) != 0) {
+			if (keysym >= XKB_KEY_a && keysym <= XKB_KEY_z)
+				unicode = (keysym - XKB_KEY_a) + 1;
+			else if (keysym >= XKB_KEY_A && keysym <= XKB_KEY_Z)
+				unicode = (keysym - XKB_KEY_A) + 1;
+		}
 
 		if (keySymbol != 0)
 			unicode = keySymbol;
@@ -5203,6 +5448,16 @@ data_device_enter(void *data, struct wl_data_device *data_device,
 	if (window->data_handler)
 		window->data_handler(window, input, x, y, types_data,
 				     window->user_data);
+
+	if (input->drag_offer != NULL && types_data != NULL) {
+		for (p = types_data; *p != NULL; p++) {
+			if (strcmp(*p, "application/x-cosmoe-bmessage") == 0) {
+				wl_data_offer_accept(input->drag_offer->offer,
+					input->drag_enter_serial, *p);
+				break;
+			}
+		}
+	}
 }
 
 static void
@@ -6665,6 +6920,13 @@ window_set_drop_handler(struct window *window, window_drop_handler_t handler)
 }
 
 void
+window_set_drag_end_handler(struct window *window,
+			    window_drag_end_handler_t handler)
+{
+	window->drag_end_handler = handler;
+}
+
+void
 window_set_close_handler(struct window *window,
 			 window_close_handler_t handler)
 {
@@ -7637,11 +7899,13 @@ window_popup_create(struct display *display, struct window *parent_window, int x
 		grab_serial = parent_window->popup_grab_serial;
 	} else {
 		wl_list_for_each(input, &display->input_list, link) {
-			if (input->seat == NULL)
+			if (input->seat == NULL || input->drag_serial == 0)
 				continue;
 
+			/* Grab with the button-press serial. display->serial is also
+			 * updated for motion and is rejected by the compositor. */
 			grab_seat = input->seat;
-			grab_serial = display_get_serial(display);
+			grab_serial = input->drag_serial;
 			break;
 		}
 	}

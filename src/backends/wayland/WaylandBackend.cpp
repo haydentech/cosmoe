@@ -837,6 +837,33 @@ public:
 		window_set_focus_handler(w, (void (*)(struct window*, bool, void*))handler, user_data);
 	}
 
+	virtual void WindowStartDrag(backend_window_t window, const void* pixels,
+		int32_t width, int32_t height, int32_t hotspotX, int32_t hotspotY)
+	{
+		window_start_drag((struct window*)window, pixels, width, height,
+			hotspotX, hotspotY);
+	}
+
+	virtual void WindowSetDragEndHandler(backend_window_t window,
+		drag_end_handler_t handler)
+	{
+		window_set_drag_end_handler((struct window*)window,
+			(window_drag_end_handler_t)handler);
+	}
+
+	virtual void WindowSetDataHandler(backend_window_t window,
+		data_handler_t handler)
+	{
+		window_set_data_handler((struct window*)window,
+			(window_data_handler_t)handler);
+	}
+
+	virtual void WindowSetDropHandler(backend_window_t window,
+		drop_handler_t handler)
+	{
+		window_set_drop_handler((struct window*)window,
+			(window_drop_handler_t)handler);
+	}
 
 	static void
 	set_empty_input_region(backend_widget_t widget, backend_display_t display)

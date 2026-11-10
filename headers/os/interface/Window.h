@@ -422,6 +422,11 @@ private:
 								 void *data);
             friend int view_pointer_motion_handler(struct widget *widget, struct input *input, uint32_t time,
 									   float x, float y, void *data);
+			friend void view_data_handler(struct window *window, struct input *input,
+								   float x, float y, const char **types, void *data);
+			friend void view_drop_handler(struct window *window, struct input *input,
+								   int32_t x, int32_t y, void *data);
+			friend void view_drag_end_handler(struct window *window, void *data);
             friend void view_axis_handler(struct widget *widget, struct input *input, uint32_t time,
 								   uint32_t axis, wl_fixed_t value, void *data);
             friend void key_handler(struct window *window, struct input *input, uint32_t time, uint32_t key, uint32_t sym,
@@ -500,6 +505,7 @@ public:
 			drawing_mode		fTrackingDragMode = B_OP_COPY;
 			bool				fTrackingDragUsesRect = false;
 			BRect				fTrackingDragRect;
+			bool				fNativeDragActive = false;
 
 	static thread_id	sDisplayThread;
 	static uint32		sNonMenuClickSequence;

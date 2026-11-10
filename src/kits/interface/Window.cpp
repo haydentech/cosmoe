@@ -516,6 +516,13 @@ BWindow::_DrawPointerTrackingOverlayLocked(cairo_t* cr)
 		return;
 	}
 
+	if (fPointerTrackingMode == TRACKING_DRAG && fNativeDragActive) {
+		// The compositor draws the drag icon and moves it with the pointer.
+		// Drawing the overlay as well would leave a second, immobile copy of
+		// the image behind at the drag's start position.
+		return;
+	}
+
 	BRect rect = _NormalizedRect(fTrackingCurrentRect);
 	if (!rect.IsValid())
 		return;
@@ -692,6 +699,48 @@ view_redraw_handler(struct widget *widget, void *data)
 // Track currently pressed mouse buttons globally for motion events
 static uint32_t sCurrentButtons = 0;
 static const uint32_t kMsgApplyDisplayScale = 'dScl';
+static const char* kCosmoeDragMimeType = "application/x-cosmoe-bmessage";
+static BLocker sWaylandDragLock("Wayland drag state");
+static BMessage* sWaylandDragMessage;
+static BPoint sWaylandDragOffset;
+static BWindow* sWaylandDragSource;
+
+static BWindow*
+window_for_callback_data(void* data)
+{
+	intptr_t token = (intptr_t)data;
+	BHandler* handler = NULL;
+	if (token <= B_NULL_TOKEN
+		|| gDefaultTokens.GetToken((int32)token, B_HANDLER_TOKEN,
+			(void**)&handler) != B_OK) {
+		return NULL;
+	}
+
+	return dynamic_cast<BWindow*>(handler);
+}
+
+static bool
+wayland_drag_message_for_types(const char** types, BMessage& message,
+	BPoint& offset)
+{
+	bool supported = false;
+	for (const char** type = types; type != NULL && *type != NULL; type++) {
+		if (strcmp(*type, kCosmoeDragMimeType) == 0) {
+			supported = true;
+			break;
+		}
+	}
+	if (!supported)
+		return false;
+
+	BAutolock lock(&sWaylandDragLock);
+	if (!lock.IsLocked() || sWaylandDragMessage == NULL)
+		return false;
+
+	message = *sWaylandDragMessage;
+	offset = sWaylandDragOffset;
+	return true;
+}
 
 static inline double
 _DisplayScaleFactor(int32 scalePercent)
@@ -1077,6 +1126,110 @@ int view_pointer_motion_handler(struct widget *widget,
 		cursor = cosmoe_display_convert_cursor(cursor);
 
 	return cursor;
+}
+
+void
+view_data_handler(struct window* backendWindow, struct input* input,
+	float x, float y, const char** types, void* data)
+{
+	(void)backendWindow;
+	(void)input;
+
+	BWindow* window = window_for_callback_data(data);
+	if (window == NULL || window->fTopView == NULL)
+		return;
+
+	BMessage dragMessage;
+	BPoint offset;
+	if (!wayland_drag_message_for_types(types, dragMessage, offset))
+		return;
+
+	BView* view = window->_FindView(window->fTopView, BPoint(x, y));
+	if (view == NULL)
+		view = window->fTopView;
+
+	BMessage message(B_MOUSE_MOVED);
+	BMessage::Private messagePrivate(&message);
+	messagePrivate.SetTarget(B_PREFERRED_TOKEN);
+	message.AddInt64("when", system_time());
+	message.AddPoint("window_where", BPoint(x, y));
+	message.AddInt32("buttons", B_PRIMARY_MOUSE_BUTTON);
+	message.AddInt32("be:transit", B_ENTERED_VIEW);
+	message.AddInt32("_view_token", _get_object_token_(view));
+	message.AddMessage("be:drag_message", &dragMessage);
+	BMessenger(NULL, window).SendMessage(&message);
+}
+
+void
+view_drop_handler(struct window* backendWindow, struct input* input,
+	int32_t x, int32_t y, void* data)
+{
+	(void)backendWindow;
+	(void)input;
+
+	BWindow* window = window_for_callback_data(data);
+	if (window == NULL || window->fTopView == NULL)
+		return;
+
+	BMessage dragMessage;
+	BPoint offset;
+	const char* types[] = {kCosmoeDragMimeType, NULL};
+	if (!wayland_drag_message_for_types(types, dragMessage, offset))
+		return;
+
+	BView* target = window->_FindView(window->fTopView, BPoint(x, y));
+	if (target == NULL)
+		target = window->fTopView;
+
+	BMessage::Private messagePrivate(&dragMessage);
+	messagePrivate.SetWasDropped(true);
+	dragMessage.RemoveName("_drop_point_");
+	dragMessage.AddPoint("_drop_point_",
+		BPoint(x + window->fFrame.left, y + window->fFrame.top));
+	dragMessage.RemoveName("_drop_offset_");
+	dragMessage.AddPoint("_drop_offset_", offset);
+	window->PostMessage(&dragMessage, target);
+
+	BAutolock lock(&sWaylandDragLock);
+	if (lock.IsLocked()) {
+		BWindow* source = sWaylandDragSource;
+		delete sWaylandDragMessage;
+		sWaylandDragMessage = NULL;
+		sWaylandDragSource = NULL;
+		if (source != NULL) {
+			// The compositor consumed the pointer events for the drag,
+			// including the button release that ended it.
+			sCurrentButtons = 0;
+			source->fMouseDownViewToken = B_NULL_TOKEN;
+			source->_StopPointerTracking();
+		}
+	}
+}
+
+
+void
+view_drag_end_handler(struct window* backendWindow, void* data)
+{
+	(void)backendWindow;
+
+	BWindow* window = window_for_callback_data(data);
+	if (window == NULL)
+		return;
+
+	// The compositor consumed the pointer events for the drag, including the
+	// button release, so the app-side button state has to be reset here.
+	sCurrentButtons = 0;
+	window->fMouseDownViewToken = B_NULL_TOKEN;
+	window->_StopPointerTracking();
+
+	// A drag that was cancelled never produces a drop; drop the retained
+	// message so a later cross-application drag can't deliver it.
+	BAutolock lock(&sWaylandDragLock);
+	if (lock.IsLocked()) {
+		delete sWaylandDragMessage;
+		sWaylandDragMessage = NULL;
+		sWaylandDragSource = NULL;
+	}
 }
 
 
@@ -4405,6 +4558,7 @@ BWindow::_ClearTrackingStateLocked()
 	fTrackingDragMode = B_OP_COPY;
 	fTrackingDragUsesRect = false;
 	fTrackingDragRect = BRect();
+	fNativeDragActive = false;
 }
 
 
@@ -4479,6 +4633,96 @@ BWindow::_StartMessageDrag(BMessage* message, BBitmap* image,
 
 	_UpdateTrackingRectLocked();
 	pthread_mutex_unlock(&fBackingSurfaceLock);
+
+	{
+		BAutolock lock(&sWaylandDragLock);
+		if (lock.IsLocked()) {
+			delete sWaylandDragMessage;
+			sWaylandDragMessage = new(std::nothrow) BMessage(*messageCopy);
+			sWaylandDragOffset = offset;
+			sWaylandDragSource = this;
+		}
+	}
+
+	// The compositor owns the pointer for the duration of a native drag and
+	// this client receives no pointer motion events while it lasts, so the
+	// in-window tracking overlay can never follow the drag. Hand the image to
+	// the backend instead: the compositor draws and moves it with the pointer.
+	const char* backendName = cosmoe_backend_get_current_name();
+	const bool waylandBackend = backendName != NULL
+		&& strcmp(backendName, "Wayland") == 0;
+
+	const void* iconPixels = NULL;
+	uint8* ownedIconPixels = NULL;
+	int32 iconWidth = 0;
+	int32 iconHeight = 0;
+	int32 iconStride = 0;
+
+	if (image != NULL && waylandBackend) {
+		BRect bounds = image->Bounds();
+		iconWidth = (int32)bounds.IntegerWidth() + 1;
+		iconHeight = (int32)bounds.IntegerHeight() + 1;
+
+		if (image->fWindow != NULL && image->fWindow->fBackingSurface != NULL) {
+			// View bitmaps keep their pixels in the offscreen window.
+			cairo_surface_t* surface = image->fWindow->fBackingSurface;
+			iconPixels = cairo_image_surface_get_data(surface);
+			iconWidth = cairo_image_surface_get_width(surface);
+			iconHeight = cairo_image_surface_get_height(surface);
+			iconStride = cairo_image_surface_get_stride(surface);
+		} else if (image->Bits() != NULL && iconWidth > 0 && iconHeight > 0) {
+			cairo_format_t format = image->ColorSpace() == B_CMAP8
+				? CAIRO_FORMAT_RGB24 : CAIRO_FORMAT_ARGB32;
+			iconStride = cairo_format_stride_for_width(format, iconWidth);
+			const uint8* bits = (const uint8*)image->Bits();
+			if (prepare_bitmap_bits_for_cairo_argb32(bits, format,
+					image->ColorSpace(), iconWidth, iconHeight,
+					image->BytesPerRow(), iconStride, &bits,
+					&ownedIconPixels)) {
+				iconPixels = bits;
+			}
+		}
+	}
+
+	if (iconPixels == NULL || iconWidth <= 0 || iconHeight <= 0
+		|| iconStride < iconWidth * 4
+		|| (int64)iconStride * iconHeight > 8 * 1024 * 1024) {
+		iconPixels = NULL;
+		iconWidth = 0;
+		iconHeight = 0;
+		iconStride = 0;
+	}
+
+	int32 hotspotX = (int32)offset.x;
+	int32 hotspotY = (int32)offset.y;
+	if (hotspotX < 0)
+		hotspotX = 0;
+	if (hotspotY < 0)
+		hotspotY = 0;
+
+	// Wayland requires a native data-device drag for pointer focus to cross
+	// surfaces. Other backends intentionally leave this as a no-op.
+	if (fWindowToken != B_NULL_TOKEN) {
+		int32 iconSize = iconPixels != NULL ? iconStride * iconHeight : 0;
+		BEGIN_MESSAGE
+		fLink->StartMessage(AS_START_DRAG);
+		fLink->Attach<int32_t>(fWindowToken);
+		fLink->Attach<int32_t>(iconWidth);
+		fLink->Attach<int32_t>(iconHeight);
+		fLink->Attach<int32_t>(hotspotX);
+		fLink->Attach<int32_t>(hotspotY);
+		fLink->Attach<int32_t>(iconSize);
+		if (iconSize > 0)
+			fLink->Attach(iconPixels, iconSize);
+		fLink->Flush();
+	}
+
+	pthread_mutex_lock(&fBackingSurfaceLock);
+	fNativeDragActive = waylandBackend && iconPixels != NULL
+		&& fWindowToken != B_NULL_TOKEN;
+	pthread_mutex_unlock(&fBackingSurfaceLock);
+
+	free(ownedIconPixels);
 
 	_RequestTrackingRedraw();
 }
@@ -6138,6 +6382,9 @@ BWindow::_SendShowOrHideMessage()
 			fLink->Attach<void*>((void*)window_move_handler);
 			fLink->Attach<void*>((void*)window_move_start_handler);
 			fLink->Attach<void*>((void*)window_focus_handler);
+			fLink->Attach<void*>((void*)view_data_handler);
+			fLink->Attach<void*>((void*)view_drop_handler);
+			fLink->Attach<void*>((void*)view_drag_end_handler);
 			fLink->Attach<int32_t>(fFrame.IntegerWidth());
 			fLink->Attach<int32_t>(fFrame.IntegerHeight());
 			fLink->Attach<bool>(fOffscreen);

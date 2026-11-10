@@ -62,13 +62,13 @@
   - Doing this dynamically turns out to probably be harder than it's worth, as this is not used very often, and when it is, very small amounts of data are passed.
 
 - Tracker/libtracker/Deskbar bugs
-  - Dragging a file/folder to a new window (e.g. to copy/move it to a new location) does not work consistently and shows no drag/drop UI
   - Tracker menus are layered behind the Deskbar on Wayland, this is actually very difficult to fix due to Wayland layering
   - Error on startup: "FlatIconImporter::_ParseSections() - error parsing shapes: Unknown error -1"
     - This is due to a malformed Person vector icon in Haiku, not a bug in Cosmoe
   - Certain Deskbar placements that should put Deskbar in the corner of the screen position it away from the corner horizontally
   - Some custom cursors work, others show a corrupted cursor image
   - When you empty the trash, the trash icon on the Desktop changes, but if you have the trash window open, the icon in the window does not
+  - When you start a drag on a window that is not frontmost, it comes to the front, which is not correct
 
 
 ## Historical Bugs -- not specifically fixed, but haven't been seen in a long time, so may have been fixed by another change

@@ -520,6 +520,7 @@ BackendMessageProcessor::ProcessMessages(CosmoeBackend* backend,
 			int32_t token;
 			void* topView;
 			void* bwindow;
+			void* data_fn, *drop_fn, *drag_end_fn;
 			void* redraw_fn, *motion_fn, *button_fn, *axis_fn, *idle_fn;
 			void* frame_resize_fn, *close_fn, *key_fn, *screen_fn, *move_fn, *move_start_fn, *focus_fn;
 			int32_t width, height;
@@ -540,6 +541,9 @@ BackendMessageProcessor::ProcessMessages(CosmoeBackend* backend,
 				&& link.Read<void*>(&move_fn) == B_OK
 				&& link.Read<void*>(&move_start_fn) == B_OK
 				&& link.Read<void*>(&focus_fn) == B_OK
+				&& link.Read<void*>(&data_fn) == B_OK
+				&& link.Read<void*>(&drop_fn) == B_OK
+				&& link.Read<void*>(&drag_end_fn) == B_OK
 				&& link.Read<int32_t>(&width) == B_OK
 				&& link.Read<int32_t>(&height) == B_OK
 				&& link.Read<bool>(&offscreen) == B_OK) {
@@ -578,6 +582,12 @@ BackendMessageProcessor::ProcessMessages(CosmoeBackend* backend,
 							(move_start_handler_t)move_start_fn, bwindow);
 					if (focus_fn != NULL)
 						backend->WindowSetFocusHandler(win, (focus_handler_t)focus_fn, bwindow);
+					if (data_fn != NULL)
+						backend->WindowSetDataHandler(win, (data_handler_t)data_fn);
+					if (drop_fn != NULL)
+						backend->WindowSetDropHandler(win, (drop_handler_t)drop_fn);
+					if (drag_end_fn != NULL)
+						backend->WindowSetDragEndHandler(win, (drag_end_handler_t)drag_end_fn);
 
 					// Schedule resize so surface is created at correct dimensions
 					if (!offscreen)
@@ -603,6 +613,35 @@ BackendMessageProcessor::ProcessMessages(CosmoeBackend* backend,
 					backend->WindowHide(win);
 			} else {
 				STRACE(("Backend: Failed to read AS_WINDOW_HIDE\n"));
+			}
+			break;
+		}
+
+		case AS_START_DRAG: {
+			int32_t token, width, height, hotspotX, hotspotY, iconSize;
+			if (link.Read<int32_t>(&token) == B_OK
+				&& link.Read<int32_t>(&width) == B_OK
+				&& link.Read<int32_t>(&height) == B_OK
+				&& link.Read<int32_t>(&hotspotX) == B_OK
+				&& link.Read<int32_t>(&hotspotY) == B_OK
+				&& link.Read<int32_t>(&iconSize) == B_OK) {
+				uint8* pixels = NULL;
+				bool havePixels = true;
+				if (iconSize > 0) {
+					pixels = (uint8*)malloc(iconSize);
+					havePixels = pixels != NULL
+						&& link.Read(pixels, iconSize) == B_OK;
+				}
+
+				backend_window_t win = backend->WindowLookupByToken(
+					(backend_display_t)be_app->Display(), token);
+				if (win != NULL) {
+					backend->WindowStartDrag(win, havePixels ? pixels : NULL,
+						width, height, hotspotX, hotspotY);
+				}
+				free(pixels);
+			} else {
+				STRACE(("Backend: Failed to read AS_START_DRAG\n"));
 			}
 			break;
 		}

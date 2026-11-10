@@ -284,6 +284,7 @@ typedef void (*window_drop_handler_t)(struct window *window,
 				      struct input *input,
 				      int32_t x, int32_t y, void *data);
 
+typedef void (*window_drag_end_handler_t)(struct window *window, void *data);
 typedef void (*window_close_handler_t)(void *data);
 typedef void (*window_screen_handler_t)(void *data);
 typedef void (*window_fullscreen_handler_t)(struct window *window, void *data);
@@ -649,6 +650,21 @@ window_set_data_handler(struct window *window,
 void
 window_set_drop_handler(struct window *window,
 			window_drop_handler_t handler);
+
+/* Begins a native Wayland drag using the most recent pointer press on window.
+ * pixels is optional premultiplied ARGB32 data (width * 4 byte stride) that the
+ * compositor shows as the drag icon, with (hotspot_x, hotspot_y) under the
+ * pointer. While the drag lasts the compositor owns the pointer and no pointer
+ * motion events reach this client, so the drag visual cannot be client-driven. */
+void
+window_start_drag(struct window *window, const void *pixels,
+		int32_t width, int32_t height,
+		int32_t hotspot_x, int32_t hotspot_y);
+
+/* Called when the native drag ends, whether it was dropped or cancelled. */
+void
+window_set_drag_end_handler(struct window *window,
+		window_drag_end_handler_t handler);
 
 void
 window_set_close_handler(struct window *window,

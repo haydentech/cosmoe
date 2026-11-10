@@ -80,6 +80,14 @@ typedef void (*idle_handler_t)(backend_widget_t widget, void* input,
 			      uint32_t time, int32_t x, int32_t y,
 			      void *data);
 
+typedef void (*data_handler_t)(backend_window_t window, void* input,
+			      float x, float y, const char** types, void* data);
+
+typedef void (*drop_handler_t)(backend_window_t window, void* input,
+			      int32_t x, int32_t y, void* data);
+
+typedef void (*drag_end_handler_t)(backend_window_t window, void* data);
+
 enum backend_app_watch_event {
 	BACKEND_APP_WATCH_LAUNCHED = 1,
 	BACKEND_APP_WATCH_QUIT = 2,
@@ -298,6 +306,40 @@ public:
 	
 	// Focus callback
 	virtual void WindowSetFocusHandler(backend_window_t window, focus_handler_t handler, void* user_data) = 0;
+
+	// Starts a compositor-managed drag from this window. pixels is optional
+	// premultiplied ARGB32 data used as the drag icon.
+	virtual void WindowStartDrag(backend_window_t window, const void* pixels,
+		int32_t width, int32_t height, int32_t hotspotX, int32_t hotspotY)
+	{
+		(void)window;
+		(void)pixels;
+		(void)width;
+		(void)height;
+		(void)hotspotX;
+		(void)hotspotY;
+	}
+
+	virtual void WindowSetDragEndHandler(backend_window_t window,
+		drag_end_handler_t handler)
+	{
+		(void)window;
+		(void)handler;
+	}
+
+	virtual void WindowSetDataHandler(backend_window_t window,
+		data_handler_t handler)
+	{
+		(void)window;
+		(void)handler;
+	}
+
+	virtual void WindowSetDropHandler(backend_window_t window,
+		drop_handler_t handler)
+	{
+		(void)window;
+		(void)handler;
+	}
 
 	// Widget management
 	virtual backend_widget_t WindowAddWidget(backend_window_t window, void* data) = 0;
