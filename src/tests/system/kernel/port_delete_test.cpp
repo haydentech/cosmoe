@@ -39,11 +39,13 @@ main()
 
 	// BeBook: does block when port is empty, and unblocks when port is written to or deleted
 	size = port_buffer_size(id); 
-	printf("port_buffer_size %ld (0x%08lx) (%s)\n", size, size, strerror(size));
+	printf("port_buffer_size %" B_PRIdSSIZE " (0x%08" B_PRIxSIZE ") (%s)\n",
+		size, (size_t)size, strerror(size));
 
 	// BeBook: does block when port is empty, and unblocks when port is written to or deleted
 	size = read_port(id, &code, data, sizeof(data)); 
-	printf("read port code %x, size %ld (0x%08lx) (%s)\n", code, size, size, strerror(size));
+	printf("read port code %x, size %" B_PRIdSSIZE " (0x%08" B_PRIxSIZE ") (%s)\n",
+		code, size, (size_t)size, strerror(size));
 	
 	return 0;
 }

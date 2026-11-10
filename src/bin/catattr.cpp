@@ -169,7 +169,7 @@ catAttr(const char *attribute, const char *fileName, bool keepRaw,
 	}
 
 	if (bytesRead != size) {
-		fprintf(stderr, "Could only read %ld bytes from attribute!\n",
+		fprintf(stderr, "Could only read %" B_PRIuSIZE " bytes from attribute!\n",
 			bytesRead);
 		free(buffer);
 		close(fd);
@@ -185,7 +185,7 @@ catAttr(const char *attribute, const char *fileName, bool keepRaw,
 			// check for write error
 			if (written < bytesRead) {
 				if (written >= 0) {
-					fprintf(stderr, "Could only write %ld bytes to stream!\n",
+					fprintf(stderr, "Could only write %" B_PRIuSIZE " bytes to stream!\n",
 						written);
 					written = B_ERROR;
 				} else {
@@ -201,7 +201,7 @@ catAttr(const char *attribute, const char *fileName, bool keepRaw,
 			// check for read error
 			if (bytesRead < size && pos + bytesRead < info.size) {
 				if (bytesRead >= 0) {
-					fprintf(stderr, "Could only read %ld bytes from "
+					fprintf(stderr, "Could only read %" B_PRIuSIZE " bytes from "
 						"attribute!\n", bytesRead);
 				} else {
 					fprintf(stderr, "Failed to read from attribute: %s\n",

@@ -501,7 +501,7 @@ TTeamMenuItem::_Init(BList* team, BBitmap* icon, char* name, char* signature,
 
 	if (name == NULL) {
 		char temp[32];
-		snprintf(temp, sizeof(temp), "team %ld", (addr_t)team->ItemAt(0));
+		snprintf(temp, sizeof(temp), "team %" B_PRIuADDR, (addr_t)team->ItemAt(0));
 		name = strdup(temp);
 	}
 

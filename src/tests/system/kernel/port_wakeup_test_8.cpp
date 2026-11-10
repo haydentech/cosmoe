@@ -23,7 +23,8 @@ test_thread(void *)
 
 	printf("port_buffer_size...\n");
 	size = port_buffer_size(id); 
-	printf("port_buffer_size size %ld (0x%08lx) (%s)\n", size, size, strerror(size));
+	printf("port_buffer_size size %" B_PRIdSSIZE " (0x%08" B_PRIxSIZE ") (%s)\n",
+		size, (size_t)size, strerror(size));
 
 	return 0;
 }
@@ -43,7 +44,8 @@ main()
 	printf("write port result 0x%08x (%s)\n", s, strerror(s));
 
 	size = read_port(id, &code, data, sizeof(data)); 
-	printf("read port code %x, size %ld (0x%08lx) (%s)\n", code, size, size, strerror(size));
+	printf("read port code %x, size %" B_PRIdSSIZE " (0x%08" B_PRIxSIZE ") (%s)\n",
+		code, size, (size_t)size, strerror(size));
 
 	printf("port_buffer_size should block for 5 seconds now, as port is empty, until port is closed\n");
 	

@@ -130,11 +130,11 @@ DynamicBuffer::BytesRemaining() const
 void
 DynamicBuffer::PrintToStream()
 {
-	printf("Current buffer size : %ld\n", fBufferSize);
-	printf("Data start position : %ld\n", fDataStart);
-	printf("Data end position   : %ld\n", fDataEnd);
-	printf("Bytes wasted        : %ld\n", fDataStart);
-	printf("Bytes available     : %ld\n", fBufferSize - fDataEnd);
+	printf("Current buffer size : %" B_PRIuSIZE "\n", fBufferSize);
+	printf("Data start position : %" B_PRIuSIZE "\n", fDataStart);
+	printf("Data end position   : %" B_PRIuSIZE "\n", fDataEnd);
+	printf("Bytes wasted        : %" B_PRIuSIZE "\n", fDataStart);
+	printf("Bytes available     : %" B_PRIuSIZE "\n", fBufferSize - fDataEnd);
 }
 
 

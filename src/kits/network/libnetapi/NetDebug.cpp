@@ -143,7 +143,7 @@ void BNetDebug::Dump(const char* data, size_t size, const char* title)
     if ( ! g_NetDebugEnabled)
         return;
 
-    fprintf( stderr, "----------\n%s\n(dumping %ld bytes)\n",
+    fprintf( stderr, "----------\n%s\n(dumping %" B_PRIuSIZE " bytes)\n",
     	title ? title : "(untitled)", size );
 
     if (! data)

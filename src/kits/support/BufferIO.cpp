@@ -250,8 +250,8 @@ BBufferIO::PrintToStream() const
 	printf("stream %p\n", fStream);
 	printf("buffer %p\n", fBuffer);
 	printf("start  %" B_PRIdOFF "\n", fBufferStart);
-	printf("used   %ld\n", fBufferUsed);
-	printf("phys   %ld\n", fBufferSize);
+	printf("used   %" B_PRIuSIZE "\n", fBufferUsed);
+	printf("phys   %" B_PRIuSIZE "\n", fBufferSize);
 	printf("dirty  %s\n", (fBufferIsDirty) ? "true" : "false");
 	printf("owns   %s\n", (fOwnsStream) ? "true" : "false");
 }

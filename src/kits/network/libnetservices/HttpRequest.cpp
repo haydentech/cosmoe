@@ -1183,8 +1183,8 @@ BHttpRequest::_SendPostData()
 				// Input data size unknown, so we have to use chunked transfer
 				char hexSize[18];
 				// The string does not need to be NULL terminated.
-				size_t hexLength = snprintf(hexSize, sizeof(hexSize), "%lx\r\n",
-					read);
+				size_t hexLength = snprintf(hexSize, sizeof(hexSize),
+					"%" B_PRIxSIZE "\r\n", (size_t)read);
 
 				fSocket->Write(hexSize, hexLength);
 				fSocket->Write(outputTempBuffer, read);
