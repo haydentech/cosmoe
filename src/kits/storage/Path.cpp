@@ -311,7 +311,7 @@ BPath::IsAbsolute() const
 	if (InitCheck() != B_OK)
 		return false;
 
-	return fName[0] == '/';
+	return BPrivate::Storage::is_absolute_path(fName);
 }
 
 

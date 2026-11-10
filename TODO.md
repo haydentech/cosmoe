@@ -99,8 +99,6 @@
 - Very few `find_directory` entries work yet (Windows)
   - One side-effect of this is that Translators don't work on Windows yet because they can't be found.
 
-- UNC paths are not recognized as full paths (Windows)
-
 - File panel file listing background color is white on Linux and Windows, but gray on Mac
 
 - Deskbar can't activate running apps (Windows)
