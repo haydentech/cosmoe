@@ -155,26 +155,17 @@ TermView::StandardBaseState::StandardBaseState(TermView* view)
 bool
 TermView::StandardBaseState::_StandardMouseMoved(BPoint where, int32 modifiers)
 {
-	bool reportButtonMouseEvent = fView->TextBuffer()->IsMode(MODE_REPORT_BUTTON_MOUSE_EVENT);
-	bool reportAnyMouseEvent = fView->TextBuffer()->IsMode(MODE_REPORT_ANY_MOUSE_EVENT);
+	bool reportButtonMouseEvent = fView->TextBuffer()->IsMouseMode(MOUSE_MODE_BUTTON_EVENT);
+	bool reportAnyMouseEvent = fView->TextBuffer()->IsMouseMode(MOUSE_MODE_ANY_EVENT);
 	if (!reportButtonMouseEvent && !reportAnyMouseEvent)
 		return false;
 
 	TermPos clickPos = fView->_ConvertToTerminal(where);
-
-	if (reportButtonMouseEvent
-		|| fView->TextBuffer()->IsMode(MODE_EXTENDED_MOUSE_COORDINATES)) {
-		if (fView->fPrevPos.x != clickPos.x
-			|| fView->fPrevPos.y != clickPos.y) {
-			fView->_SendMouseEvent(fView->fMouseButtons, modifiers,
-				clickPos.x, clickPos.y, true);
-		}
-		fView->fPrevPos = clickPos;
-	} else {
-		fView->_SendMouseEvent(fView->fMouseButtons, modifiers, clickPos.x,
-			clickPos.y, true);
+	if (fView->fPrevPos.x != clickPos.x || fView->fPrevPos.y != clickPos.y) {
+		fView->_SendMouseEvent(fView->fMouseButtons, modifiers, clickPos.x, clickPos.y, true,
+			false);
 	}
-
+	fView->fPrevPos = clickPos;
 	return true;
 }
 
@@ -347,7 +338,7 @@ TermView::DefaultState::KeyDown(const char* bytes, int32 numBytes)
 	switch (*bytes) {
 		case B_RETURN:
 			if (rawChar == B_RETURN)
-				toWrite = "\r";
+				toWrite = fView->TextBuffer()->IsMode(MODE_LINEFEED_NEWLINE) ? "\r\n" : "\r";
 			break;
 
 		case B_DELETE:
@@ -464,13 +455,7 @@ TermView::DefaultState::KeyDown(const char* bytes, int32 numBytes)
 void
 TermView::DefaultState::MouseDown(BPoint where, int32 buttons, int32 modifiers)
 {
-	bool reportButtonMouseEvent = fView->TextBuffer()->IsMode(MODE_REPORT_BUTTON_MOUSE_EVENT);
-	bool reportAnyMouseEvent = fView->TextBuffer()->IsMode(MODE_REPORT_ANY_MOUSE_EVENT);
-	bool reportNormalMouseEvent = fView->TextBuffer()->IsMode(MODE_REPORT_NORMAL_MOUSE_EVENT);
-	bool reportX10MouseEvent = fView->TextBuffer()->IsMode(MODE_REPORT_X10_MOUSE_EVENT);
-
-	if (reportAnyMouseEvent || reportButtonMouseEvent || reportNormalMouseEvent
-		|| reportX10MouseEvent) {
+	if (!fView->TextBuffer()->IsMouseMode(MOUSE_MODE_OFF)) {
 		TermPos clickPos = fView->_ConvertToTerminal(where);
 		fView->_SendMouseEvent(buttons, modifiers, clickPos.x, clickPos.y,
 			false, false);
@@ -505,13 +490,7 @@ TermView::DefaultState::MouseMoved(BPoint where, uint32 transit,
 void
 TermView::DefaultState::MouseUp(BPoint where, int32 buttons)
 {
-	bool reportButtonMouseEvent = fView->TextBuffer()->IsMode(MODE_REPORT_BUTTON_MOUSE_EVENT);
-	bool reportAnyMouseEvent = fView->TextBuffer()->IsMode(MODE_REPORT_ANY_MOUSE_EVENT);
-	bool reportNormalMouseEvent = fView->TextBuffer()->IsMode(MODE_REPORT_NORMAL_MOUSE_EVENT);
-	bool reportX10MouseEvent = fView->TextBuffer()->IsMode(MODE_REPORT_X10_MOUSE_EVENT);
-
-	if (reportAnyMouseEvent || reportButtonMouseEvent
-		|| reportNormalMouseEvent || reportX10MouseEvent) {
+	if (!fView->TextBuffer()->IsMouseMode(MOUSE_MODE_OFF)) {
 		TermPos clickPos = fView->_ConvertToTerminal(where);
 		fView->_SendMouseEvent(buttons, 0, clickPos.x, clickPos.y,
 			false, true);
@@ -720,13 +699,13 @@ TermView::SelectState::MouseUp(BPoint where, int32 buttons)
 	// When releasing the first mouse button, we copy the selected text to the
 	// clipboard.
 
-	bool reportButtonMouseEvent = fView->TextBuffer()->IsMode(MODE_REPORT_BUTTON_MOUSE_EVENT);
-	bool reportAnyMouseEvent = fView->TextBuffer()->IsMode(MODE_REPORT_ANY_MOUSE_EVENT);
-	bool reportNormalMouseEvent = fView->TextBuffer()->IsMode(MODE_REPORT_NORMAL_MOUSE_EVENT);
+	bool reportButtonMouseEvent = fView->TextBuffer()->IsMouseMode(MOUSE_MODE_BUTTON_EVENT);
+	bool reportAnyMouseEvent = fView->TextBuffer()->IsMouseMode(MOUSE_MODE_ANY_EVENT);
+	bool reportNormalMouseEvent = fView->TextBuffer()->IsMouseMode(MOUSE_MODE_NORMAL);
 
 	if (reportAnyMouseEvent || reportButtonMouseEvent || reportNormalMouseEvent) {
 		TermPos clickPos = fView->_ConvertToTerminal(where);
-		fView->_SendMouseEvent(0, 0, clickPos.x, clickPos.y, false);
+		fView->_SendMouseEvent(0, 0, clickPos.x, clickPos.y, false, true);
 	} else if ((buttons & B_PRIMARY_MOUSE_BUTTON) == 0
 		&& (fView->fMouseButtons & B_PRIMARY_MOUSE_BUTTON) != 0) {
 		fView->Copy(fView->fMouseClipboard);
