@@ -1493,6 +1493,13 @@ TermView::Draw(BRect updateRect)
 					rect.right = rect.left + fFontWidth * nextCount - 1;
 					nextColumn = i + nextCount;
 
+					if (nextCount == 0) {
+						// Nothing to advance to -- the row may lie above the text
+						// buffer, e.g. when the dirty region reaches into history rows
+						// that do not exist. Advance anyway, or this loop never ends.
+						nextColumn = lastColumn + 1;
+					}
+
 					if (attr.IsBackSet())
 						rgb_back = fTextBuffer->IsScreenReverseVideoMode()
 							? attr.BackgroundColor(fTextBuffer->Palette())

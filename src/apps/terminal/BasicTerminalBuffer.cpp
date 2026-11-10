@@ -1631,6 +1631,14 @@ BasicTerminalBuffer::_Scroll(int32 top, int32 bottom, int32 numLines)
 					fDirtyInfo.dirtyTop -= numLines;
 					if (fDirtyInfo.dirtyBottom <= bottom)
 						fDirtyInfo.dirtyBottom -= numLines;
+
+					// Do not let the dirty region reach above the oldest history
+					// row. Rows that do not exist cannot be repainted by the view.
+					int32 oldestRow = -HistorySize();
+					if (fDirtyInfo.dirtyTop < oldestRow)
+						fDirtyInfo.dirtyTop = oldestRow;
+					if (fDirtyInfo.dirtyBottom < oldestRow)
+						fDirtyInfo.dirtyBottom = oldestRow;
 				}
 
 				// numLines above the bottom become dirty
