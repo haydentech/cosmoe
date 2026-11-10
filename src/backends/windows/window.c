@@ -1707,19 +1707,30 @@ display_create(int *argc, char **argv)
 		bool is_wine = false;
 		
 		// If WINEPREFIX is set, we're definitely under Wine
-		if (wineprefix) {
+		if (wineprefix && wineprefix[0] != '\0') {
 			is_wine = true;
 		}
 		// If HOME exists and looks like a Unix path (starts with /), we're likely under Wine
 		else if (home && home[0] == '/') {
 			is_wine = true;
+		} else {
+			HMODULE ntdll = GetModuleHandleA("ntdll.dll");
+			is_wine = ntdll != NULL
+				&& GetProcAddress(ntdll, "wine_get_version") != NULL;
 		}
 		
 		if (is_wine) {
 			// Running under Wine - use Wine's Windows fonts directory
-			if (!home) home = "/home/billh";  // Fallback
-			snprintf(fonts_dir, sizeof(fonts_dir), "%s/.wine/drive_c/windows/Fonts", home);
-			debug_log("display_create: Running under Wine, using fonts from: %s", fonts_dir);
+			if (wineprefix && wineprefix[0] != '\0') {
+				snprintf(fonts_dir, sizeof(fonts_dir), "%s/drive_c/windows/Fonts", wineprefix);
+			} else if (home && home[0] == '/') {
+				snprintf(fonts_dir, sizeof(fonts_dir), "%s/.wine/drive_c/windows/Fonts", home);
+			} else {
+				fonts_dir[0] = '\0';
+				debug_log("display_create: WARNING - Wine detected, but WINEPREFIX and Unix HOME are unavailable");
+			}
+			if (fonts_dir[0] != '\0')
+				debug_log("display_create: Running under Wine, using fonts from: %s", fonts_dir);
 		} else {
 			// Running on native Windows - use actual Windows fonts directory
 			char windows_dir[MAX_PATH];
@@ -1732,8 +1743,10 @@ display_create(int *argc, char **argv)
 			debug_log("display_create: Running on native Windows, using fonts from: %s", fonts_dir);
 		}
 		
-		FcBool added = FcConfigAppFontAddDir(config, (const FcChar8*)fonts_dir);
-		debug_log("display_create: FcConfigAppFontAddDir(%s) = %d", fonts_dir, added);
+		if (fonts_dir[0] != '\0') {
+			FcBool added = FcConfigAppFontAddDir(config, (const FcChar8*)fonts_dir);
+			debug_log("display_create: FcConfigAppFontAddDir(%s) = %d", fonts_dir, added);
+		}
 		
 		// Set as current config BEFORE building fonts
 		FcBool set = FcConfigSetCurrent(config);
