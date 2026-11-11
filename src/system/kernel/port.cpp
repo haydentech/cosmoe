@@ -21,6 +21,7 @@
 #endif
 
 #include <errno.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <ctype.h>
 #include <stdlib.h>
@@ -168,7 +169,8 @@ dump_port_info(int argc, char** argv)
 
 	if (argc > 2) {
 		if (!strcmp(argv[1], "address")) {
-			_dump_port_info((Port *)strtoul(argv[2], NULL, 0));
+			_dump_port_info(reinterpret_cast<Port*>(static_cast<uintptr_t>(
+				strtoull(argv[2], NULL, 0))));
 			return 0;
 		} else if (!strcmp(argv[1], "sem"))
 			sem = strtoul(argv[2], NULL, 0);

@@ -240,7 +240,7 @@ image_id load_add_on(const char* path)
 
 	image_id id = register_image(hdll, path, NULL, true, false);
 	if (id < 0) {
-		IMG_CLOSE(hdll);
+		(void)IMG_CLOSE(hdll);
 		return id;
 	}
 	return id;
@@ -328,7 +328,7 @@ status_t get_image_symbol(image_id imid, const char* name, int32 sclass, void** 
 	err = IMG_ERROR();
 #endif
 	if (closeAfterLookup)
-		IMG_CLOSE(hdll);
+		(void)IMG_CLOSE(hdll);
 	if (err)
 	{
 		if (verboseLookupErrors) {

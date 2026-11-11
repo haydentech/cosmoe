@@ -14,7 +14,7 @@ srcs_storage_test = files(
   'NodeInfoTest.cpp',
   'NodeTest.cpp',
   'PathTest.cpp',
-  # 'QueryTest.cpp',        # TODO: Query unsupported on Cosmoe
+  'QueryTest.cpp',
   'ResourcesTest.cpp',
   'ResourceStringsTest.cpp',
   'StatableTest.cpp',

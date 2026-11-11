@@ -24,6 +24,7 @@
 #include <ResourceItem.h>
 #include <ResourcesContainer.h>
 #include <ResourcesDefs.h>
+#include <SupportDefs.h>
 //#include <Warnings.h>
 
 #ifdef __APPLE__
@@ -93,16 +94,19 @@ read_exactly(BPositionIO& file, off_t position, void* buffer, size_t size,
 {
 	ssize_t read = file.ReadAt(position, buffer, size);
 	if (read < 0) {
-		printf("read_exactly: ReadAt failed with error %ld\n", read);
+		printf("read_exactly: ReadAt failed with error %" B_PRIdSSIZE "\n",
+			read);
 		throw Exception(read, errorMessage);
 	} else if ((size_t)read != size) {
-		printf("read_exactly: Read %ld bytes but expected %lu bytes at position %lld\n", 
-			read, size, (long long)position);
+		printf("read_exactly: Read %" B_PRIdSSIZE " bytes but expected %"
+			B_PRIuSIZE " bytes at position %lld\n", read, size,
+			(long long)position);
 		if (errorMessage) {
-			throw Exception("%s Read too few bytes (%ld/%lu).", errorMessage,
-							read, size);
+			throw Exception("%s Read too few bytes (%" B_PRIdSSIZE "/%"
+				B_PRIuSIZE ").", errorMessage, read, size);
 		} else
-			throw Exception("Read too few bytes (%ld/%lu).", read, size);
+			throw Exception("Read too few bytes (%" B_PRIdSSIZE "/%"
+				B_PRIuSIZE ").", read, size);
 	}
 }
 

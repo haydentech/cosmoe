@@ -1107,13 +1107,6 @@ StartLiveQuery(const std::shared_ptr<LiveQuery>& live)
 }
 
 
-void
-RegisterQueryFD(int fd)
-{
-	std::lock_guard<std::mutex> guard(QueryLock());
-	QueryFDs().insert(fd);
-}
-
 //	#pragma mark - Volume traversal
 
 
