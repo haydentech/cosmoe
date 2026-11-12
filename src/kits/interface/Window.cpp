@@ -1011,10 +1011,11 @@ void view_button_handler(struct widget *widget,
 		BMessage::Private droppedPrivate(&dropped);
 		droppedPrivate.SetWasDropped(true);
 
+		// Like most points in Cosmoe, we use Window-relative coordinates for drag-and-drop,
+		// unlike Haiku which uses screen coordinates.
 		BPoint windowWhere(x, y);
-		BPoint screenWhere(windowWhere + window->fFrame.LeftTop());
 		dropped.RemoveName("_drop_point_");
-		dropped.AddPoint("_drop_point_", screenWhere);
+		dropped.AddPoint("_drop_point_", windowWhere);
 		dropped.RemoveName("_drop_offset_");
 		dropped.AddPoint("_drop_offset_", dropOffset);
 
