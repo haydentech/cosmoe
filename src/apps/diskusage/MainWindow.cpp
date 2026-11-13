@@ -68,7 +68,10 @@ MainWindow::MessageReceived(BMessage* message)
 bool
 MainWindow::QuitRequested()
 {
-	be_app->PostMessage(B_QUIT_REQUESTED);
+	// The window is deleted after this returns; pass the frame to the app.
+	BMessage quitMessage(B_QUIT_REQUESTED);
+	quitMessage.AddRect("window frame", Frame());
+	be_app->PostMessage(&quitMessage);
 	return true;
 }
 
