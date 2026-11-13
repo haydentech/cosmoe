@@ -621,27 +621,65 @@ view_redraw_handler(struct widget *widget, void *data)
 	if (view == NULL)
 		return;
 
-	if (!view->IsHidden() && window && !window->UpdatesDisabled()) {
+	const char* backendName = cosmoe_backend_get_current_name();
+	const bool cocoaBackend = backendName != NULL
+		&& strcmp(backendName, "cocoa") == 0;
+	const bool waylandBackend = backendName != NULL
+		&& strcmp(backendName, "Wayland") == 0;
+
+	// A Wayland frame is a freshly allocated shm buffer with no pixels from
+	// the previous one, so anything left unpainted here is presented as fully
+	// transparent. Repaint the backing store even when updates are disabled or
+	// nothing has been drawn into it yet; skipping the copy would blank the
+	// window for a frame there.
+	if (!view->IsHidden() && window
+		&& (waylandBackend || !window->UpdatesDisabled())) {
 		// Refresh display scale from backend output state before blitting.
 		// This lets first paint/popup paints pick up HiDPI without waiting for input events.
 		_RefreshWindowDisplayScale(window);
 
 		// Simply copy the backing store to the Wayland surface
 		// No message passing - the drawing has already been done
+		// fBackingSurface must be inspected with the lock held. The window
+		// thread clears it while recreating the surface during a resize, and
+		// a check outside the lock can observe that transient NULL, skip the
+		// blit below and present a fully transparent Wayland buffer.
+		pthread_mutex_lock(&window->fBackingSurfaceLock);
 		if (window->fBackingSurface != NULL) {
-			pthread_mutex_lock(&window->fBackingSurfaceLock);
-
-			// Skip copying if backing surface hasn't been drawn to yet
-			// This prevents flashing gray when resizing
-			if (window->fBackingSurfaceValid) {
+			// On the other backends a skipped copy leaves the previous frame
+			// on screen, but on Wayland it would leave a transparent buffer.
+			if (window->fBackingSurfaceValid || waylandBackend) {
 				cairo_t* cr = cosmoe_widget_cairo_create((cosmoe_widget_t)widget);
 				if (cr) {
 					int32_t offset_h, offset_v;
 					cosmoe_window_get_topview_offset(be_app->Display(), window->fWindowToken, &offset_h, &offset_v);
 					
+					// The surface can already be at the new size while the backing
+					// store is still being resized on the window thread. Clip to the
+					// content area and let the source pattern below extend the
+					// backing store over the exposed strip, so a resize never
+					// presents an unpainted (transparent) buffer.
+					bool clipToContent = false;
+					if (waylandBackend) {
+						rectangle allocation;
+						cosmoe_widget_get_allocation((cosmoe_widget_t)widget,
+							&allocation);
+						if (allocation.width > 0 && allocation.height > 0) {
+							cairo_save(cr);
+							cairo_rectangle(cr, allocation.x, allocation.y,
+								allocation.width, allocation.height);
+							cairo_clip(cr);
+							clipToContent = true;
+						}
+					}
+
 					// The fBackingSurface is at physical resolution but the CGContext is already
 					// scaled by Cocoa for Retina. Scale the source pattern to compensate.
 					cairo_set_source_surface(cr, window->fBackingSurface, offset_h, offset_v);
+					if (waylandBackend) {
+						cairo_pattern_set_extend(cairo_get_source(cr),
+							CAIRO_EXTEND_PAD);
+					}
 					
 					double scale = _DisplayScaleFactor(window->fDisplayScalePercent);
 					if (scale != 1.0) {
@@ -656,11 +694,6 @@ view_redraw_handler(struct widget *widget, void *data)
 						cairo_pattern_set_matrix(pattern, &matrix);
 					}
 					
-					const char* backendName = cosmoe_backend_get_current_name();
-					const bool cocoaBackend = backendName != NULL
-						&& strcmp(backendName, "cocoa") == 0;
-					const bool waylandBackend = backendName != NULL
-						&& strcmp(backendName, "Wayland") == 0;
 					
 					const BRegion& dirtyRegion = window->fBackingSurfaceDirtyRegion;
 					if (!cocoaBackend && !waylandBackend && dirtyRegion.CountRects() > 0) {
@@ -687,12 +720,13 @@ view_redraw_handler(struct widget *widget, void *data)
 					}
 					window->fBackingSurfaceDirtyRegion.MakeEmpty();
 					window->_DrawPointerTrackingOverlayLocked(cr);
+					if (clipToContent)
+						cairo_restore(cr);
 					cairo_destroy(cr);
 				}
 			}
-			
-			pthread_mutex_unlock(&window->fBackingSurfaceLock);
 		}
+		pthread_mutex_unlock(&window->fBackingSurfaceLock);
 	}
 }
 
