@@ -109,7 +109,17 @@ App::QuitRequested()
 	BPath path;
 	BFile settingsFile;
 	BMessage settings;
-	if (settings.AddRect("window frame", fMainWindow->Frame()) != B_OK
+	BRect windowFrame;
+	BMessage* message = CurrentMessage();
+	if (message == NULL
+		|| message->FindRect("window frame", &windowFrame) != B_OK) {
+		// Quit was not initiated by the main window, so it is still alive.
+		if (fMainWindow == NULL || !fMainWindow->Lock())
+			return BApplication::QuitRequested();
+		windowFrame = fMainWindow->Frame();
+		fMainWindow->Unlock();
+	}
+	if (settings.AddRect("window frame", windowFrame) != B_OK
 		|| find_directory(B_USER_SETTINGS_DIRECTORY, &path) != B_OK
 		|| path.Append("DiskUsage") != B_OK
 		|| settingsFile.SetTo(path.Path(),
