@@ -4000,10 +4000,8 @@ window_frame_create(struct window *window, void *data)
 
 	if (!window_prefers_system_decorations(window) &&
 	    window_frame_enable_client_side_decorations(window) < 0) {
-		widget_destroy(frame->widget);
-		free(frame);
-		window->frame = NULL;
-		return NULL;
+		/* Keep the undecorated frame: main_surface->widget uses it. */
+		fprintf(stderr, "cosmoe: failed to create window decorations\n");
 	}
 
 	return frame->child;
@@ -10050,7 +10048,7 @@ display_run(struct display *display)
 {
 	struct task *task;
 	struct epoll_event ep[16];
-	int i, count, ret;
+	int i, count, ret = 0;
 	struct widget *widgetToDelete, *widgetPos;
 	struct window *windowToDelete, *windowPos;
 

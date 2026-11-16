@@ -28,6 +28,7 @@
 #include "config.h"
 
 #include <stdint.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <wayland-util.h>
@@ -151,8 +152,17 @@ frame_button_create(struct frame *frame, const char *icon_name,
 	cairo_surface_t *icon;
 
 	icon = cairo_image_surface_create_from_png(icon_name);
-	if (cairo_surface_status(icon) != CAIRO_STATUS_SUCCESS)
-		goto error;
+	if (cairo_surface_status(icon) != CAIRO_STATUS_SUCCESS) {
+		/* Missing icon: use a blank one rather than failing the frame. */
+		static int warned;
+		if (!warned++)
+			fprintf(stderr, "cosmoe: cannot load %s; set COSMOE_DATA_DIR\n",
+				icon_name);
+		cairo_surface_destroy(icon);
+		icon = cairo_image_surface_create(CAIRO_FORMAT_ARGB32, 16, 16);
+		if (cairo_surface_status(icon) != CAIRO_STATUS_SUCCESS)
+			goto error;
+	}
 
 	button = frame_button_create_from_surface(frame, icon, status_effect,
 	                                          flags);
