@@ -120,6 +120,8 @@ Cosmoe is designed to be as compatible as possible with Haiku/Be code, but there
 - `entry_ref` must always contain a full path in the name field on Cosmoe.
   - Many apps assume there will be just the leaf name in there, as would be expected on Haiku, so additional code is required if you need to extract just the leaf name.
 
+- On Haiku, a device is invalid if < 0; on Cosmoe, a device is invalid if == -1
+
 - `BRecentFilesList` / `BRecentFolderList` / `BRecentAppList` are per-app per-launch lists, not system-wide and remembered
 
 - Cosmoe combines several libraries into libbe.so that are separate on Haiku.  If you use makefile-engine, this is handled for you.  If not, you need to remove these libraries from your link command:

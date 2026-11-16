@@ -96,19 +96,16 @@ BQuery::Clear()
 		error = _kern_close(fQueryFd);
 		fQueryFd = -1;
 	}
-
 	// delete the predicate stack and the predicate
 	delete fStack;
 	fStack = NULL;
 	delete[] fPredicate;
 	fPredicate = NULL;
-
 	// reset the other parameters
 	fDevice = (dev_t)B_ERROR;
 	fFlags = 0;
 	fPort = B_ERROR;
 	fToken = 0;
-
 	return error;
 }
 
@@ -499,20 +496,16 @@ BQuery::_PushNode(QueryNode* node, bool deleteOnError)
 	status_t error = (node ? B_OK : B_NO_MEMORY);
 	if (error == B_OK && _HasFetched())
 		error = B_NOT_ALLOWED;
-
 	// allocate the stack, if necessary
 	if (error == B_OK && !fStack) {
 		fStack = new(nothrow) QueryStack;
 		if (!fStack)
 			error = B_NO_MEMORY;
 	}
-
 	if (error == B_OK)
 		error = fStack->PushNode(node);
-
 	if (error != B_OK && deleteOnError)
 		delete node;
-
 	return error;
 }
 
@@ -531,11 +524,9 @@ status_t
 BQuery::_SetPredicate(const char* expression)
 {
 	status_t error = B_OK;
-
 	// unset the old predicate
 	delete[] fPredicate;
 	fPredicate = NULL;
-
 	// set the new one
 	if (expression) {
 		fPredicate = new(nothrow) char[strlen(expression) + 1];
@@ -544,7 +535,6 @@ BQuery::_SetPredicate(const char* expression)
 		else
 			error = B_NO_MEMORY;
 	}
-
 	return error;
 }
 
@@ -568,7 +558,6 @@ BQuery::_EvaluateStack()
 		_SetPredicate(NULL);
 		if (_HasFetched())
 			error = B_NOT_ALLOWED;
-
 		// convert the stack to a tree and evaluate it
 		QueryNode* node = NULL;
 		if (error == B_OK)
@@ -578,7 +567,6 @@ BQuery::_EvaluateStack()
 			error = node->GetString(predicate);
 		if (error == B_OK)
 			error = _SetPredicate(predicate.String());
-
 		delete fStack;
 		fStack = NULL;
 	}
@@ -632,3 +620,4 @@ void BQuery::_QwertyQuery3() {}
 void BQuery::_QwertyQuery4() {}
 void BQuery::_QwertyQuery5() {}
 void BQuery::_QwertyQuery6() {}
+

@@ -88,11 +88,6 @@ BEntryOperationEngineBase::Entry::GetPath(BPath& buffer, const char*& _path)
 		error = buffer.SetTo(fDirectory, fPath);
 	} else if (fEntryRef != NULL) {
 		error = buffer.SetTo(fEntryRef);
-	} else if (fDirectoryRef != NULL) {
-		BDirectory directory;
-		error = directory.SetTo(fDirectoryRef);
-		if (error == B_OK)
-			error = buffer.SetTo(&directory, fPath);
 	} else if (fPath != NULL) {
 		_path = fPath;
 		return B_OK;
@@ -133,7 +128,7 @@ BEntryOperationEngineBase::Entry::GetPathOrName(BString& _path) const
 	} else if (fEntry != NULL) {
 		// GetPath() apparently failed, so just return the entry name.
 		_path = fEntry->Name();
-	} else if (fDirectory != NULL || fDirectoryRef != NULL) {
+	} else if (fDirectory != NULL) {
 		if (fPath != NULL && fPath[0] == '/') {
 			// absolute path -- just return it
 			_path = fPath;
@@ -142,11 +137,6 @@ BEntryOperationEngineBase::Entry::GetPathOrName(BString& _path) const
 			BEntry entry;
 			if (fDirectory != NULL) {
 				error = fDirectory->GetEntry(&entry);
-			} else {
-				BDirectory directory;
-				error = directory.SetTo(fDirectoryRef);
-				if (error == B_OK)
-					error = directory.GetEntry(&entry);
 			}
 
 			if (error != B_OK || (error = entry.GetPath(&buffer)) != B_OK)
