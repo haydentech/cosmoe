@@ -23,7 +23,8 @@ static const uint32 MSG_COLOR_CHANGED					= 'mcbc';
 static const uint32 MSG_TAB_TITLE_SETTING_CHANGED		= 'mtts';
 static const uint32 MSG_WINDOW_TITLE_SETTING_CHANGED	= 'mwts';
 static const uint32 MSG_BLINK_CURSOR_CHANGED			= 'mbcc';
-static const uint32 MSG_ALLOW_BOLD_CHANGED				= 'mabc';
+static const uint32 MSG_BRIGHTEN_ANSI_CHANGED			= 'mbac';
+static const uint32 MSG_BOLD_STYLE_CHANGED				= 'mbsc';
 static const uint32 MSG_USE_OPTION_AS_META_CHANGED		= 'momc';
 static const uint32 MSG_WARN_ON_EXIT_CHANGED			= 'mwec';
 static const uint32 MSG_COLS_CHANGED					= 'mccl';
@@ -67,8 +68,11 @@ private:
 			void				_MarkSelectedFont(const char* family,
 									const char* style, const char* size);
 
+	static	void				_MakeBoldStyleMenu(BMenu* menu);
+			void				_MarkSelectedBoldStyle();
+
 			BCheckBox*			fBlinkCursor;
-			BCheckBox*			fAllowBold;
+			BCheckBox*			fBrightenAnsi;
 			BCheckBox*			fUseOptionAsMetaKey;
 			BCheckBox*			fWarnOnExit;
 			BMenuField*			fFontField;
@@ -78,6 +82,8 @@ private:
 
 			BTextControl*		fTabTitle;
 			BTextControl*		fWindowTitle;
+
+			BMenuField*			fBoldStyleField;
 
 			BMessenger			fTerminalMessenger;
 };

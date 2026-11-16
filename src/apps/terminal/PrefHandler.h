@@ -38,6 +38,10 @@ struct pref_defaults {
 #define PREF_IBEAM_CURSOR "ibeam"
 #define PREF_UNDERLINE_CURSOR "underline"
 
+#define PREF_BOLD_USE_FONT "font"
+#define PREF_BOLD_SIMULATED "simulated"
+#define PREF_BOLD_NONE "none"
+
 
 class BMessage;
 class BEntry;
@@ -63,12 +67,14 @@ class PrefHandler {
 		bool        getBool(const char *key);
 		rgb_color   getRGB(const char *key);
 		int			getCursor(const char *key);
+		int			getBoldStyle(const char *key);
 
 		void        setInt32(const char *key, int32 data);
 		void        setFloat(const char *key, float data);
 		void        setString(const char *key, const char *data);
 		void        setBool(const char *key, bool data);
 		void        setRGB(const char *key, const rgb_color data);
+		void		setBoldStyle(const char *key, int data);
 
 		bool        IsEmpty() const;
 

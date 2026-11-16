@@ -141,12 +141,12 @@ static const char* const PREF_ROWS = "Rows";
 static const char* const PREF_TEXT_ENCODING = "Text encoding";
 
 static const char* const PREF_BLINK_CURSOR = "Blinking cursor";
-static const char* const PREF_ALLOW_BOLD = "Allow bold text";
 static const char* const PREF_USE_OPTION_AS_META =
 	"Use left Option as Meta key";
 static const char* const PREF_WARN_ON_EXIT = "Warn on exit";
 static const char* const PREF_CURSOR_STYLE = "Cursor style";
-static const char* const PREF_EMULATE_BOLD = "Emulate bold";
+static const char* const PREF_BOLD_STYLE = "Bold text style";
+static const char* const PREF_BRIGHTEN_ANSI = "Bold attribute brightens ANSI colors";
 
 static const char* const PREF_TAB_TITLE = "Tab title";
 static const char* const PREF_WINDOW_TITLE = "Window title";
@@ -164,6 +164,15 @@ extern const char* const kURLAdditionalWordCharacters;
 
 struct UTF8Char;
 extern const UTF8Char kNonCharacter;
+
+
+// Bold text style
+enum {
+	BOLD_USE_FONT,
+	BOLD_SIMULATED,
+	BOLD_NONE
+};
+
 
 // Cursor style
 enum {

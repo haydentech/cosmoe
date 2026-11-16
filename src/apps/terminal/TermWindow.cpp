@@ -1054,7 +1054,8 @@ TermWindow::MessageReceived(BMessage *message)
 
 		case MSG_HALF_FONT_CHANGED:
 		case MSG_FULL_FONT_CHANGED:
-		case MSG_ALLOW_BOLD_CHANGED:
+		case MSG_BOLD_STYLE_CHANGED:
+		case MSG_BRIGHTEN_ANSI_CHANGED:
 		{
 			BFont font;
 			_GetPreferredFont(font);

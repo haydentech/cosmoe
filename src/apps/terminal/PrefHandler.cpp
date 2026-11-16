@@ -93,7 +93,8 @@ static const pref_defaults kTermDefaults[] = {
 	{ PREF_USE_OPTION_AS_META,	PREF_FALSE },
 	{ PREF_WARN_ON_EXIT,		PREF_TRUE },
 	{ PREF_CURSOR_STYLE,		PREF_BLOCK_CURSOR },
-	{ PREF_EMULATE_BOLD,		PREF_FALSE },
+	{ PREF_BOLD_STYLE,			PREF_BOLD_USE_FONT },
+	{ PREF_BRIGHTEN_ANSI,		PREF_TRUE },
 
 	{ PREF_ALTERNATE_SCROLL,	PREF_FALSE },
 
@@ -375,6 +376,37 @@ PrefHandler::getCursor(const char *key)
 			return IBEAM_CURSOR;
 	}
 	return BLOCK_CURSOR;
+}
+
+
+int
+PrefHandler::getBoldStyle(const char* key)
+{
+	const char* value = fContainer.FindString(key);
+	if (value != NULL && strcmp(value, PREF_BOLD_USE_FONT) != 0) {
+		if (strcmp(value, PREF_BOLD_SIMULATED) == 0)
+			return BOLD_SIMULATED;
+		if (strcmp(value, PREF_BOLD_NONE) == 0)
+			return BOLD_NONE;
+	}
+	return BOLD_USE_FONT;
+}
+
+
+void
+PrefHandler::setBoldStyle(const char* key, int data)
+{
+	switch (data) {
+		case BOLD_USE_FONT:
+			setString(key, PREF_BOLD_USE_FONT);
+			break;
+		case BOLD_SIMULATED:
+			setString(key, PREF_BOLD_SIMULATED);
+			break;
+		case BOLD_NONE:
+			setString(key, PREF_BOLD_NONE);
+			break;
+	}
 }
 
 

@@ -37,6 +37,8 @@
 
 // #pragma mark -
 
+static const char* kBoldStyleKey = "boldStyle";
+
 
 AppearancePrefView::AppearancePrefView(const char* name,
 		const BMessenger& messenger)
@@ -48,9 +50,8 @@ AppearancePrefView::AppearancePrefView(const char* name,
 		B_TRANSLATE("Blinking cursor"),
 			new BMessage(MSG_BLINK_CURSOR_CHANGED));
 
-	fAllowBold = new BCheckBox(
-		B_TRANSLATE("Allow bold text"),
-			new BMessage(MSG_ALLOW_BOLD_CHANGED));
+	fBrightenAnsi = new BCheckBox(B_TRANSLATE("Bold attribute brightens ANSI colors"),
+		new BMessage(MSG_BRIGHTEN_ANSI_CHANGED));
 
 	fUseOptionAsMetaKey = new BCheckBox(
 		B_TRANSLATE("Use left Option as Meta key"),
@@ -98,6 +99,13 @@ AppearancePrefView::AppearancePrefView(const char* name,
 		"can be used:")) << "\n" << kToolTipSetWindowTitlePlaceholders
 		<< "\n" << kToolTipCommonTitlePlaceholders);
 
+	BMenu* boldMenu = new(std::nothrow) BPopUpMenu("");
+	if (boldMenu != NULL) {
+		_MakeBoldStyleMenu(boldMenu);
+		boldMenu->SetLabelFromMarked(true);
+	}
+	fBoldStyleField = new BMenuField(B_TRANSLATE("Bold text:"), boldMenu);
+
 	BLayoutBuilder::Group<>(this)
 		.SetInsets(5, 5, 5, 5)
 		.AddGrid(5, 5)
@@ -111,10 +119,12 @@ AppearancePrefView::AppearancePrefView(const char* name,
 			.Add(fFontField->CreateMenuBarLayoutItem(), 1, 3)
 			.Add(fEncodingField->CreateLabelLayoutItem(), 0, 4)
 			.Add(fEncodingField->CreateMenuBarLayoutItem(), 1, 4)
+			.Add(fBoldStyleField->CreateLabelLayoutItem(), 0, 5)
+			.Add(fBoldStyleField->CreateMenuBarLayoutItem(), 1, 5)
 			.End()
 		.AddGlue()
 		.Add(fBlinkCursor)
-		.Add(fAllowBold)
+		.Add(fBrightenAnsi)
 		.Add(fUseOptionAsMetaKey)
 		.Add(fWarnOnExit);
 
@@ -123,6 +133,7 @@ AppearancePrefView::AppearancePrefView(const char* name,
 	fFontField->SetAlignment(B_ALIGN_RIGHT);
 	fWindowSizeField->SetAlignment(B_ALIGN_RIGHT);
 	fEncodingField->SetAlignment(B_ALIGN_RIGHT);
+	fBoldStyleField->SetAlignment(B_ALIGN_RIGHT);
 
 	Revert();
 }
@@ -137,7 +148,10 @@ AppearancePrefView::Revert()
 	fWindowTitle->SetText(pref->getString(PREF_WINDOW_TITLE));
 
 	fBlinkCursor->SetValue(pref->getBool(PREF_BLINK_CURSOR));
-	fAllowBold->SetValue(pref->getBool(PREF_ALLOW_BOLD));
+	fBrightenAnsi->SetValue(pref->getBool(PREF_BRIGHTEN_ANSI));
+
+	_MarkSelectedBoldStyle();
+
 	fUseOptionAsMetaKey->SetValue(pref->getBool(PREF_USE_OPTION_AS_META));
 	fWarnOnExit->SetValue(pref->getBool(PREF_WARN_ON_EXIT));
 
@@ -158,7 +172,7 @@ AppearancePrefView::AttachedToWindow()
 	fTabTitle->SetTarget(this);
 	fWindowTitle->SetTarget(this);
 	fBlinkCursor->SetTarget(this);
-	fAllowBold->SetTarget(this);
+	fBrightenAnsi->SetTarget(this);
 	fUseOptionAsMetaKey->SetTarget(this);
 	fWarnOnExit->SetTarget(this);
 
@@ -173,11 +187,11 @@ AppearancePrefView::AttachedToWindow()
 
 	fWindowSizeField->Menu()->SetTargetForItems(this);
 	fEncodingField->Menu()->SetTargetForItems(this);
+	fBoldStyleField->Menu()->SetTargetForItems(this);
 }
 
 
 void
-
 AppearancePrefView::MessageReceived(BMessage* msg)
 {
 	bool modified = false;
@@ -241,14 +255,21 @@ AppearancePrefView::MessageReceived(BMessage* msg)
 			}
 			break;
 
-		case MSG_ALLOW_BOLD_CHANGED:
-			if (PrefHandler::Default()->getBool(PREF_ALLOW_BOLD)
-				!= fAllowBold->Value()) {
-					PrefHandler::Default()->setBool(PREF_ALLOW_BOLD,
-						fAllowBold->Value());
-					modified = true;
+		case MSG_BRIGHTEN_ANSI_CHANGED:
+			if (PrefHandler::Default()->getBool(PREF_BRIGHTEN_ANSI) != fBrightenAnsi->Value()) {
+				PrefHandler::Default()->setBool(PREF_BRIGHTEN_ANSI, fBrightenAnsi->Value());
+				modified = true;
 			}
 			break;
+
+		case MSG_BOLD_STYLE_CHANGED:
+		{
+			int boldStyle = msg->FindInt32(kBoldStyleKey);
+			if (PrefHandler::Default()->getBoldStyle(PREF_BOLD_STYLE) != boldStyle) {
+				PrefHandler::Default()->setBoldStyle(PREF_BOLD_STYLE, boldStyle);
+				modified = true;
+			}
+		} break;
 
 		case MSG_USE_OPTION_AS_META_CHANGED:
 			if (PrefHandler::Default()->getBool(PREF_USE_OPTION_AS_META)
@@ -453,5 +474,47 @@ AppearancePrefView::_MarkSelectedFont(const char* family, const char* style,
 		BMenuItem* item = fontSizeMenu->FindItem(size);
 		if (item != NULL)
 			item->SetMarked(true);
+	}
+}
+
+
+/* static */ void
+AppearancePrefView::_MakeBoldStyleMenu(BMenu* menu)
+{
+	menu->SetRadioMode(true);
+
+	BMessage* message = new BMessage(MSG_BOLD_STYLE_CHANGED);
+	message->AddInt32(kBoldStyleKey, BOLD_USE_FONT);
+	menu->AddItem(new BMenuItem(B_TRANSLATE("Use bold font"), message));
+
+	message = new BMessage(MSG_BOLD_STYLE_CHANGED);
+	message->AddInt32(kBoldStyleKey, BOLD_SIMULATED);
+	menu->AddItem(new BMenuItem(B_TRANSLATE("Simulate by overstriking text"), message));
+
+	message = new BMessage(MSG_BOLD_STYLE_CHANGED);
+	message->AddInt32(kBoldStyleKey, BOLD_NONE);
+	menu->AddItem(new BMenuItem(B_TRANSLATE("None"), message));
+}
+
+
+void
+AppearancePrefView::_MarkSelectedBoldStyle()
+{
+
+	int boldStyle = PrefHandler::Default() == NULL
+		? false
+		: PrefHandler::Default()->getBoldStyle(PREF_BOLD_STYLE);
+
+	BMenu* menu = fBoldStyleField->Menu();
+	switch (boldStyle) {
+		case BOLD_USE_FONT:
+			menu->ItemAt(0)->SetMarked(true);
+			break;
+		case BOLD_SIMULATED:
+			menu->ItemAt(1)->SetMarked(true);
+			break;
+		case BOLD_NONE:
+			menu->ItemAt(2)->SetMarked(true);
+			break;
 	}
 }

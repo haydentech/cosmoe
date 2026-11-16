@@ -129,14 +129,19 @@ struct Attributes {
 	}
 
 	inline rgb_color
-	ForegroundColor(const rgb_color* indexedColors) const
+	ForegroundColor(const rgb_color* indexedColors, bool brightenAnsi = false) const
 	{
+		// Check for 24-bit RGB specified foreground color vs indexed color.
 		if ((foreground & 0x80000000) != 0)
 			return make_color((foreground >> 16) & 0xFF,
 				(foreground >> 8) & 0xFF,
 				foreground & 0xFF);
-		else
-			return indexedColors[(state & FORECOLOR) >> 16];
+		else {
+			uint8 index = (uint8)((state & FORECOLOR) >> 16);
+			if (IsBold() && brightenAnsi && index < 8)
+				index += 8;
+			return indexedColors[index];
+		}
 	}
 
 	inline rgb_color

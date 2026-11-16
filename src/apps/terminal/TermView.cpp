@@ -267,8 +267,8 @@ TermView::_InitObject(const ShellParameters& shellParameters)
 	fFontWidth = 0;
 	fFontHeight = 0;
 	fFontAscent = 0;
-	fEmulateBold = false;
-	fAllowBold = true;
+	fBoldStyle = BOLD_USE_FONT;
+	fBrightenAnsi = true;
 	fFrameResized = false;
 	fResizeViewDisableCount = 0;
 	fLastActivityTime = 0;
@@ -819,11 +819,13 @@ TermView::SetTermFont(const BFont *font)
 	bool blinking = PrefHandler::Default()->getBool(PREF_BLINK_CURSOR);
 	SwitchCursorBlinking(blinking);
 
-	fEmulateBold = PrefHandler::Default() == NULL ? false
-		: PrefHandler::Default()->getBool(PREF_EMULATE_BOLD);
+	fBrightenAnsi = PrefHandler::Default() == NULL
+		? false
+		: PrefHandler::Default()->getBool(PREF_BRIGHTEN_ANSI);
 
-	fAllowBold = PrefHandler::Default() == NULL ? false
-		: PrefHandler::Default()->getBool(PREF_ALLOW_BOLD);
+	fBoldStyle = PrefHandler::Default() == NULL
+		? false
+		: PrefHandler::Default()->getBoldStyle(PREF_BOLD_STYLE);
 
 	_ScrollTo(0, false);
 	if (fScrollBar != NULL)
@@ -1088,8 +1090,7 @@ TermView::_DrawLinePart(float x1, float y1, Attributes attr,
 	if (highlight != NULL)
 		attr.state = highlight->Highlighter()->AdjustTextAttributes(attr.state);
 
-	inView->SetFont(attr.IsBold() && !fEmulateBold && fAllowBold
-		? &fBoldFont : &fHalfFont);
+	inView->SetFont(attr.IsBold() && fBoldStyle == BOLD_USE_FONT ? &fBoldFont : &fHalfFont);
 
 	// Set pen point
 	float x2 = x1 + fFontWidth * width;
@@ -1102,7 +1103,7 @@ TermView::_DrawLinePart(float x1, float y1, Attributes attr,
 
 	// color attribute
 	if (attr.IsForeSet())
-		rgb_fore = attr.ForegroundColor(fTextBuffer->Palette());
+		rgb_fore = attr.ForegroundColor(fTextBuffer->Palette(), fBrightenAnsi);
 	if (attr.IsBackSet())
 		rgb_back = attr.BackgroundColor(fTextBuffer->Palette());
 	if (attr.IsUnderSet())
@@ -1193,18 +1194,10 @@ TermView::_DrawLinePart(float x1, float y1, Attributes attr,
 
 	// Draw character.
 	if (attr.IsBold()) {
-		if (fEmulateBold) {
+		if (fBoldStyle == BOLD_SIMULATED) {
 			inView->MovePenTo(x1 - 1, y1 + fFontAscent - 1);
 			inView->DrawString((char *)buf);
 			inView->SetDrawingMode(B_OP_BLEND);
-		} else {
-			rgb_color bright = rgb_fore;
-
-			bright.red = saturated_add<uint8>(bright.red, 64);
-			bright.green = saturated_add<uint8>(bright.green, 64);
-			bright.blue = saturated_add<uint8>(bright.blue, 64);
-
-			inView->SetHighColor(bright);
 		}
 	}
 
