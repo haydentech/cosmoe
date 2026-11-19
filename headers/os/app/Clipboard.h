@@ -57,6 +57,10 @@ private:
 			void				_EnsureDataAllocated();
 			status_t			_DownloadFromSystem(bool force = false);
 			status_t			_UploadToSystem();
+			bool				_SystemTextMatches(const char* text,
+									size_t length) const;
+			void				_SetLastUploadedText(const char* text,
+									size_t length);
 	
 			uint32				_reserved0;
 			BMessage*			fData;
@@ -67,6 +71,8 @@ private:
 			char*				fName;
 			int64				fLastDownloadTime;
 			bool				fHaveCachedData;
+			char*				fLastUploadedText;
+			size_t				fLastUploadedLength;
 			uint32				_reserved[4];
 };
 

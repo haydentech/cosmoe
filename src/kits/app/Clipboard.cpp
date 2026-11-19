@@ -40,11 +40,14 @@ BClipboard::BClipboard(const char *name, bool transient)
 	fCount = 0;
 	fLastDownloadTime = 0;
 	fHaveCachedData = false;
+	fLastUploadedText = NULL;
+	fLastUploadedLength = 0;
 }
 
 
 BClipboard::~BClipboard()
 {
+	free(fLastUploadedText);
 	free(fName);
 	delete fData;
 }
@@ -182,7 +185,7 @@ BClipboard::Revert()
 
 	//TODO get the data here
 	if (status == B_OK)
-		status = _DownloadFromSystem();
+		status = _DownloadFromSystem(true);
 
 	return status;
 }
@@ -256,32 +259,43 @@ BClipboard::_DownloadFromSystem(bool force)
 	if (!force && fHaveCachedData
 		&& now - fLastDownloadTime < kClipboardRefreshInterval)
 		return B_OK;
-	
+
 	// Get clipboard text from backend
 	if (!be_app)
 		return B_ERROR;
-		
+
 	cosmoe_display_t display = be_app->Display();
 	if (!display)
 		return B_ERROR;
 
 	size_t length = 0;
 	char* text = cosmoe_display_get_clipboard_text(display, &length);
-	if (!text) {
-		fData->MakeEmpty();
+	if (text == NULL)
+		length = 0;
+
+	// The backend only knows about text, but a clipboard message can carry
+	// other types as well (Tracker, for example, stores entry_refs in it).
+	// As long as the system clipboard still holds exactly the text we last
+	// put there, our local message is the authoritative copy, so don't
+	// overwrite it with the text we would read back.
+	if (!force && fHaveCachedData && _SystemTextMatches(text, length)) {
+		free(text);
 		fLastDownloadTime = now;
-		fHaveCachedData = true;
-		return B_OK;  // Empty clipboard is not an error
+		return B_OK;
 	}
 
 	// Clear current data
 	fData->MakeEmpty();
 
 	// Add text data to the BMessage
-	status_t status = fData->AddData("text/plain", B_MIME_TYPE, text, length);
+	status_t status = B_OK;
+	if (text != NULL)
+		status = fData->AddData("text/plain", B_MIME_TYPE, text, length);
 	free(text);
 
 	if (status == B_OK) {
+		// Whatever is in the text clipboard now did not come from us
+		_SetLastUploadedText(NULL, 0);
 		fLastDownloadTime = now;
 		fHaveCachedData = true;
 	}
@@ -294,27 +308,47 @@ status_t
 BClipboard::_UploadToSystem()
 {
 	_EnsureDataAllocated();
-	
+
 	// Get text from the BMessage
 	const char* text = NULL;
 	ssize_t length = 0;
-	
-	if (fData->FindData("text/plain", B_MIME_TYPE, (const void**)&text, &length) != B_OK) {
-		// No text data in clipboard
-		return B_OK;
+
+	if (fData->FindData("text/plain", B_MIME_TYPE, (const void**)&text, &length) != B_OK
+		|| text == NULL || length < 0) {
+		text = NULL;
+		length = 0;
 	}
 
 	// Upload to backend
 	if (!be_app)
 		return B_ERROR;
-		
+
 	cosmoe_display_t display = be_app->Display();
 	if (!display)
 		return B_ERROR;
 
-	int result = cosmoe_display_set_clipboard_text(display, text, length);
-	if (result != 0)
+	if (length > 0) {
+		int result = cosmoe_display_set_clipboard_text(display, text, length);
+		if (result != 0)
 		return B_ERROR;
+
+		_SetLastUploadedText(text, length);
+	} else {
+		// The message has no text flavor (Tracker's file references, for
+		// example). The backend can only hold text, so have it drop its
+		// text to match this message. If the backend can't clear it, keep
+		// track of what it currently holds so that a change made by
+		// another application is still detected as such.
+		if (cosmoe_display_set_clipboard_text(display, "", 0) == 0) {
+			_SetLastUploadedText(NULL, 0);
+		} else {
+			size_t currentLength = 0;
+			char* current = cosmoe_display_get_clipboard_text(display,
+				&currentLength);
+			_SetLastUploadedText(current, currentLength);
+			free(current);
+		}
+	}
 
 	// Increment commit count
 	fCount++;
@@ -322,4 +356,37 @@ BClipboard::_UploadToSystem()
 	fHaveCachedData = true;
 
 	return B_OK;
+}
+
+
+bool
+BClipboard::_SystemTextMatches(const char* text, size_t length) const
+{
+	if (length != fLastUploadedLength)
+		return false;
+
+	if (length == 0)
+		return true;
+
+	return fLastUploadedText != NULL
+		&& memcmp(fLastUploadedText, text, length) == 0;
+}
+
+
+void
+BClipboard::_SetLastUploadedText(const char* text, size_t length)
+{
+	free(fLastUploadedText);
+	fLastUploadedText = NULL;
+	fLastUploadedLength = 0;
+
+	if (text == NULL || length == 0)
+		return;
+
+	fLastUploadedText = (char*)malloc(length);
+	if (fLastUploadedText == NULL)
+		return;
+
+	memcpy(fLastUploadedText, text, length);
+	fLastUploadedLength = length;
 }
