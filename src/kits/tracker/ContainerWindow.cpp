@@ -954,11 +954,11 @@ BContainerWindow::SwitchDirectory(const entry_ref* ref)
 	WindowStateNodeOpener opener(this, false);
 	opener.SetTo(&entry, false);
 
-	// Redraw the background image or erase it
-	UpdateBackgroundImage();
-
 	// Update pose view and set directory type
 	PoseView()->SwitchDir(ref, opener.StreamNode());
+
+	// Redraw the background image or erase it
+	UpdateBackgroundImage();
 
 	if (wasInTrash ^ (TargetModel()->IsTrash() || TargetModel()->InTrash())
 		|| wasRoot != TargetModel()->IsRoot() || wasVolume != TargetModel()->IsVolume()) {
@@ -1035,6 +1035,10 @@ BContainerWindow::UpdateBackgroundImage()
 		// The default image will still work though.
 		fBackgroundImage = BackgroundImage::Refresh(fBackgroundImage, opener.Node(),
 			isDesktop, PoseView());
+	} else if (fBackgroundImage != NULL) {
+		fBackgroundImage->Remove();
+		delete fBackgroundImage;
+		fBackgroundImage = NULL;
 	}
 
 	// look for default background image info
@@ -2410,8 +2414,8 @@ BContainerWindow::ShowDropContextMenu(BPoint where, BPoseView* source)
 	PoseView()->ConvertToScreen(&global);
 	PoseView()->CommitActivePose();
 
-	Shortcuts()->UpdateCreateLinkHereItem(
-		fDropContextMenu->FindItem(Shortcuts()->CreateLinkHereCommand()));
+	// Drop context menu is static; always look for kCreateLink, never kCreateRelativeLink.
+	Shortcuts()->UpdateCreateLinkHereItem(fDropContextMenu->FindItem(kCreateLink));
 
 	BMenuItem* item;
 
@@ -3886,7 +3890,7 @@ BContainerWindow::RestoreWindowState(AttributeStreamNode* node)
 			&& node->Read(kAttrWindowDecor, 0, B_RAW_TYPE, size, buffer)
 				== size) {
 			BMessage decorSettings;
-			if (decorSettings.Unflatten(buffer) == B_OK) {
+			if (decorSettings.Unflatten(buffer, size) == B_OK) {
 				// Cosmoe does not expose BWindow::SetDecoratorSettings() yet.
 			}
 		}

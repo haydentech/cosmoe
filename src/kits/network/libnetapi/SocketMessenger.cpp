@@ -360,7 +360,7 @@ BSocketMessenger::_ReadMessage(BMessage& _message)
 	if (readSize != size)
 		return B_MISMATCHED_VALUES;
 
-	return _message.Unflatten(buffer);
+	return _message.Unflatten(buffer, size);
 }
 
 

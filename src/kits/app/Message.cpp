@@ -135,7 +135,7 @@ handle_reply(port_id replyPort, int32* _code, bigtime_t timeout,
 	if (result < 0 || *_code != kPortMessageCode)
 		return result < 0 ? result : B_ERROR;
 
-	result = reply->Unflatten(buffer);
+	result = reply->Unflatten(buffer, size);
 	return result;
 }
 
@@ -319,8 +319,8 @@ BMessage::HasSameData(const BMessage& other, bool ignoreFieldOrder,
 		bool needsMemCompare = true;
 		if (deep && field->type == B_MESSAGE_TYPE) {
 			BMessage message, otherMessage;
-			if (message.Unflatten((const char*)data) == B_OK
-				&& otherMessage.Unflatten((const char*)otherData) == B_OK) {
+			if (message.Unflatten(data, field->data_size) == B_OK
+				&& otherMessage.Unflatten(otherData, otherField->data_size) == B_OK) {
 				if (!message.HasSameData(ignoreFieldOrder, deep))
 					return false;
 				needsMemCompare = false;
@@ -732,7 +732,7 @@ BMessage::_PrintToStream(const char* indent) const
 					snprintf(buffer, sizeof(buffer), "%s        ", indent);
 
 					BMessage message;
-					status_t result = message.Unflatten((const char*)pointer);
+					status_t result = message.Unflatten(pointer, size);
 					if (result != B_OK) {
 						printf("failed unflatten: %s\n", strerror(result));
 						break;
@@ -1069,7 +1069,7 @@ BMessage::Flatten(char* buffer, ssize_t size) const
 
 
 status_t
-BMessage::Flatten(BDataIO* stream, ssize_t* size) const
+BMessage::Flatten(BDataIO* stream, ssize_t* _size) const
 {
 	DEBUG_FUNCTION_ENTER;
 	if (stream == NULL)
@@ -1081,27 +1081,28 @@ BMessage::Flatten(BDataIO* stream, ssize_t* size) const
 	/* we have to sync the what code as it is a public member */
 	fHeader->what = what;
 
-	ssize_t result1 = stream->Write(fHeader, sizeof(message_header));
-	if (result1 != sizeof(message_header))
-		return result1 < 0 ? result1 : B_ERROR;
+	status_t status = stream->WriteExactly(fHeader, sizeof(message_header));
+	if (status != B_OK)
+		return status;
 
-	ssize_t result2 = 0;
+	size_t size = sizeof(message_header);
 	if (fHeader->field_count > 0) {
-		ssize_t fieldsSize = fHeader->field_count * sizeof(field_header);
-		result2 = stream->Write(fFields, fieldsSize);
-		if (result2 != fieldsSize)
-			return result2 < 0 ? result2 : B_ERROR;
+		const ssize_t fieldsSize = fHeader->field_count * sizeof(field_header);
+		status = stream->WriteExactly(fFields, fieldsSize);
+		if (status != B_OK)
+			return status;
+		size += fieldsSize;
 	}
 
-	ssize_t result3 = 0;
 	if (fHeader->data_size > 0) {
-		result3 = stream->Write(fData, fHeader->data_size);
-		if (result3 != (ssize_t)fHeader->data_size)
-			return result3 < 0 ? result3 : B_ERROR;
+		status = stream->WriteExactly(fData, fHeader->data_size);
+		if (status != B_OK)
+			return status;
+		size += fHeader->data_size;
 	}
 
-	if (size)
-		*size = result1 + result2 + result3;
+	if (_size != NULL)
+		*_size = size;
 
 	return B_OK;
 }
@@ -1301,9 +1302,27 @@ BMessage::Unflatten(const char* flatBuffer)
 
 	uint32 format = *(uint32*)flatBuffer;
 	if (format != MESSAGE_FORMAT_HAIKU)
-		return BPrivate::MessageAdapter::Unflatten(format, this, flatBuffer);
+		return BPrivate::MessageAdapter::Unflatten(format, this, flatBuffer, -1);
 
 	BMemoryIO io(flatBuffer, SSIZE_MAX);
+	return Unflatten(&io);
+}
+
+
+status_t
+BMessage::Unflatten(const void* flatBuffer, size_t flatBufferSize)
+{
+	DEBUG_FUNCTION_ENTER;
+	if (flatBuffer == NULL)
+		return B_BAD_VALUE;
+
+	uint32 format = *(uint32*)flatBuffer;
+	if (format != MESSAGE_FORMAT_HAIKU) {
+		return BPrivate::MessageAdapter::Unflatten(format, this, flatBuffer,
+			(ssize_t)flatBufferSize);
+	}
+
+	BMemoryIO io(flatBuffer, flatBufferSize);
 	return Unflatten(&io);
 }
 
@@ -1316,7 +1335,9 @@ BMessage::Unflatten(BDataIO* stream)
 		return B_BAD_VALUE;
 
 	uint32 format = 0;
-	stream->Read(&format, sizeof(uint32));
+	status_t status = stream->ReadExactly(&format, sizeof(uint32));
+	if (status != B_OK)
+		return status == B_PARTIAL_READ ? B_BAD_VALUE : status;
 	if (format != MESSAGE_FORMAT_HAIKU)
 		return BPrivate::MessageAdapter::Unflatten(format, this, stream);
 
@@ -1330,12 +1351,11 @@ BMessage::Unflatten(BDataIO* stream)
 
 	fHeader->format = format;
 	uint8* header = (uint8*)fHeader;
-	ssize_t result = stream->Read(header + sizeof(uint32),
+	status = stream->ReadExactly(header + sizeof(uint32),
 		sizeof(message_header) - sizeof(uint32));
-	if (result != sizeof(message_header) - sizeof(uint32)
-		|| (fHeader->flags & MESSAGE_FLAG_VALID) == 0) {
+	if (status != B_OK) {
 		_InitHeader();
-		return result < 0 ? result : B_BAD_VALUE;
+		return status == B_PARTIAL_READ ? B_BAD_VALUE : status;
 	}
 
 	what = fHeader->what;
@@ -1358,9 +1378,9 @@ BMessage::Unflatten(BDataIO* stream)
 				return B_NO_MEMORY;
 			}
 
-			result = stream->Read(fFields, fieldsSize);
-			if (result != fieldsSize)
-				return result < 0 ? result : B_BAD_VALUE;
+			status = stream->ReadExactly(fFields, fieldsSize);
+			if (status != B_OK)
+				return status == B_PARTIAL_READ ? B_BAD_VALUE : status;
 		}
 
 		if (fHeader->data_size > 0) {
@@ -1372,14 +1392,14 @@ BMessage::Unflatten(BDataIO* stream)
 				return B_NO_MEMORY;
 			}
 
-			result = stream->Read(fData, fHeader->data_size);
-			if (result != (ssize_t)fHeader->data_size) {
+			status = stream->ReadExactly(fData, fHeader->data_size);
+			if (status != B_OK) {
 				free(fData);
 				fData = NULL;
 				free(fFields);
 				fFields = NULL;
 				_InitHeader();
-				return result < 0 ? result : B_BAD_VALUE;
+				return status == B_PARTIAL_READ ? B_BAD_VALUE : status;
 			}
 		}
 	}
@@ -3063,13 +3083,13 @@ BMessage::FindMessage(const char* name, int32 index, BMessage* message) const
 	if (message == NULL)
 		return B_BAD_VALUE;
 
-	void* data = NULL;
+	const void* data = NULL;
 	ssize_t size = 0;
 	status_t error = FindData(name, B_MESSAGE_TYPE, index,
-		(const void**)&data, &size);
+		&data, &size);
 
 	if (error == B_OK)
-		error = message->Unflatten((const char*)data);
+		error = message->Unflatten(data, size);
 	else
 		*message = BMessage();
 
@@ -3090,10 +3110,10 @@ BMessage::FindFlat(const char* name, int32 index, BFlattenable* object) const
 	if (object == NULL)
 		return B_BAD_VALUE;
 
-	void* data = NULL;
+	const void* data = NULL;
 	ssize_t numBytes = 0;
 	status_t error = FindData(name, object->TypeCode(), index,
-		(const void**)&data, &numBytes);
+		&data, &numBytes);
 
 	if (error == B_OK)
 		error = object->Unflatten(object->TypeCode(), data, numBytes);

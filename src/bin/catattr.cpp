@@ -266,7 +266,7 @@ catAttr(const char *attribute, const char *fileName, bool keepRaw,
 		case B_MESSAGE_TYPE:
 		{
 			BMessage message;
-			if (!cut && message.Unflatten(buffer) == B_OK) {
+			if (!cut && message.Unflatten(buffer, size) == B_OK) {
 				message.PrintToStream();
 				break;
 			}

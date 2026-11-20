@@ -1034,7 +1034,7 @@ add_message_contents(BList *textlist, BMessage *msg, int32 level)
 #else
 	char *namefound;
 #endif
-	void *voidptr;
+	const void *voidptr;
 	BMessage a_message;
 	char *textline, *datatype, *content;
 
@@ -1044,15 +1044,15 @@ add_message_contents(BList *textlist, BMessage *msg, int32 level)
 		msg->GetInfo(B_ANY_TYPE, i, &namefound, &typefound);
 		j = 0;
 
-		while (msg->FindData(namefound, typefound, j++, (const void **)&voidptr,
+		while (msg->FindData(namefound, typefound, j++, &voidptr,
 				&sizefound) == B_OK) {
 			datatype = get_datatype_string(typefound);
 			content = format_data(typefound, (char*)voidptr, sizefound);
-			size_t indent = level * 4;
-			size_t lineSize = indent + strlen(namefound) + strlen(datatype) + strlen(content) + 10;
-			textline = (char*)malloc(lineSize);
-			memset(textline, 32, indent);
-			snprintf(textline + indent, lineSize - indent, "\"%s\" (%s) : %s", namefound, datatype, content);
+			textline = (char*)malloc(20 + level * 4 + strlen(namefound)
+					+ strlen(datatype) + strlen(content));
+			memset(textline, 32, 20 + level * 4);
+			sprintf(textline + level * 4, "\"%s\" (%s) : %s", namefound,
+				datatype, content);
 			textlist->AddItem(textline);
 			delete[] datatype;
 			delete[] content;
@@ -1062,7 +1062,7 @@ add_message_contents(BList *textlist, BMessage *msg, int32 level)
 				add_message_contents(textlist, &a_message, level + 1);
 			} else if (typefound == B_RAW_TYPE && strcmp(namefound,
 					"_previous_") == 0) {
-				if (a_message.Unflatten((const char *)voidptr) == B_OK)
+				if (a_message.Unflatten(voidptr, sizefound) == B_OK)
 					add_message_contents(textlist, &a_message, level + 1);
 			}
 		}
@@ -1338,7 +1338,7 @@ format_data(int32 type, char *ptr, long size)
 			str = new char[size * 6 + 4];
 			*str = 0;
 			for (int32 i = 0; i < min_c(256, size); i++) {
-				snprintf(idtext, sizeof(idtext), "%u ", ((unsigned char*)ptr)[i]);
+				sprintf(idtext, "%u ", ((unsigned char*)ptr)[i]);
 				strcat(str,idtext);
 			}
 			*(str+strlen(str)-2) = 0;
@@ -1346,7 +1346,7 @@ format_data(int32 type, char *ptr, long size)
 
 		case B_MESSAGE_TYPE:
 			str = new char[64];
-			if (anothermsg.Unflatten((const char *)ptr) == B_OK) {
+			if (anothermsg.Unflatten(ptr, size) == B_OK) {
 				char *whatString = get_datatype_string(anothermsg.what);
 				sprintf(str, "what=%s", whatString);
 				delete[] whatString;
